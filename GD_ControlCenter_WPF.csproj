@@ -11,6 +11,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Libs\avaspec.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Libs\avaspec.dll">
+	    <Link>avaspec.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Views\" />
     <Folder Include="ViewModels\" />
     <Folder Include="Converters\" />
@@ -21,12 +32,6 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="EPPlus" Version="8.4.1" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Libs\avaspec.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>
