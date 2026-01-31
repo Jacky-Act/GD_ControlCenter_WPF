@@ -3,64 +3,68 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:GD_ControlCenter_WPF.Tests"
+        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components"
         mc:Ignorable="d"
-        Title="TestWindow" Height="450" Width="800">
-    <Grid Margin="10">
+        Title="TestWindow" Height="450" Width="800"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Background="{DynamicResource MaterialDesignPaper}"
+        WindowStartupLocation="CenterScreen">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40" 
+                      GlassFrameThickness="1" 
+                      CornerRadius="0" 
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Header="设备管理" Grid.Row="0" Margin="5" Padding="10">
-            <StackPanel Orientation="Horizontal">
-                <Button x:Name="btnScan" Content="扫描设备" Width="100" Height="35" Margin="5,0" Click="btnScan_Click"/>
-                <ComboBox x:Name="cmbDevices" Width="180" Height="35" Margin="5,0" 
-                      DisplayMemberPath="Config.SerialNumber" VerticalContentAlignment="Center"/>
-                <Button x:Name="btnConnect" Content="激活设备" Width="100" Height="35" Margin="5,0" Click="btnConnect_Click"/>
-                <Ellipse x:Name="ledStatus" Width="20" Height="20" Fill="Gray" Margin="10,0" ToolTip="连接状态"/>
-            </StackPanel>
-        </GroupBox>
+        <components:TitleBarView Grid.Row="0" Height="40" />
 
-        <GroupBox Header="参数设置 (Config)" Grid.Row="1" Margin="5" Padding="10">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="积分时间(ms):" VerticalAlignment="Center" Margin="5,0"/>
-                <TextBox x:Name="txtIntegrationTime" Width="80" Height="35" Text="100" VerticalContentAlignment="Center" FontSize="16"/>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="72"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <TextBlock Text="平均次数:" VerticalAlignment="Center" Margin="15,0,5,0"/>
-                <TextBox x:Name="txtAverages" Width="60" Height="35" Text="1" VerticalContentAlignment="Center" FontSize="16"/>
+            <components:NavigationView x:Name="SideNav" Grid.Column="0" />
 
-                <CheckBox x:Name="chkSaturation" Content="使能饱和检测" VerticalAlignment="Center" Margin="15,0"/>
+            <Grid Grid.Column="1">
+                <TextBlock Text="这是仪表台的真实内容区" 
+               HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignHeadline4TextBlock}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NavRail.SelectedIndex, ElementName=SideNav}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
-                <Button x:Name="btnApplyConfig" Content="应用配置" Width="100" Height="35" Margin="10,0" Click="btnApplyConfig_Click"/>
-            </StackPanel>
-        </GroupBox>
-
-        <GroupBox Header="采集控制" Grid.Row="2" Margin="5" Padding="10">
-            <StackPanel Orientation="Horizontal">
-                <Button x:Name="btnMeasureOnce" Content="单次采样" Width="100" Height="35" Margin="5,0" Click="btnMeasureOnce_Click"/>
-                <Separator Margin="10,0" Width="1" Background="Gray"/>
-                <ToggleButton x:Name="btnContinuous" Content="开始持续测量" Width="120" Height="35" Margin="5,0" Click="btnContinuous_Click"/>
-                <Button x:Name="btnStop" Content="停止" Width="80" Height="35" Margin="5,0" Click="btnStop_Click"/>
-
-                <TextBlock x:Name="txtCaptureStatus" Text="等待中..." VerticalAlignment="Center" Margin="20,0" Foreground="Blue"/>
-            </StackPanel>
-        </GroupBox>
-
-        <GroupBox Header="实时分析 (Logic)" Grid.Row="3" Margin="5" Padding="10">
-            <UniformGrid Columns="2">
-                <StackPanel Orientation="Horizontal" Margin="5">
-                    <TextBlock Text="峰值波长 (nm): " FontSize="18"/>
-                    <TextBlock x:Name="lblPeakWavelength" Text="0.00" FontSize="18" FontWeight="Bold" Foreground="DarkGreen"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="5">
-                    <TextBlock Text="最大强度 (Counts): " FontSize="18"/>
-                    <TextBlock x:Name="lblPeakIntensity" Text="0" FontSize="18" FontWeight="Bold" Foreground="DarkRed"/>
-                </StackPanel>
-            </UniformGrid>
-        </GroupBox>
+                <TextBlock Text="这是时序图的真实内容区" 
+               HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignHeadline4TextBlock}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NavRail.SelectedIndex, ElementName=SideNav}" Value="1">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

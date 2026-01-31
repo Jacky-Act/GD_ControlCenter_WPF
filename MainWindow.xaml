@@ -6,7 +6,16 @@
         xmlns:local="clr-namespace:GD_ControlCenter_WPF"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
-    <Grid>
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
+        <Border Grid.Row="1" Background="Black" Margin="20">
+            <Border Height="40" Background="DeepPink" VerticalAlignment="Bottom">
+                <TextBlock Text="Hook 修复后，我应该完整可见" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
+            </Border>
+        </Border>
     </Grid>
 </Window>
