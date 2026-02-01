@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components"
+        xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"
         mc:Ignorable="d"
         Title="TestWindow" Height="450" Width="800"
         WindowStyle="SingleBorderWindow"
@@ -12,6 +13,10 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         Background="{DynamicResource MaterialDesignPaper}"
         WindowStartupLocation="CenterScreen">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="40" 
@@ -36,35 +41,8 @@
 
             <components:NavigationView x:Name="SideNav" Grid.Column="0" />
 
-            <Grid Grid.Column="1">
-                <TextBlock Text="这是仪表台的真实内容区" 
-               HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignHeadline4TextBlock}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NavRail.SelectedIndex, ElementName=SideNav}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-
-                <TextBlock Text="这是时序图的真实内容区" 
-               HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignHeadline4TextBlock}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NavRail.SelectedIndex, ElementName=SideNav}" Value="1">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </Grid>
+            <ContentControl Grid.Column="1" 
+                            Content="{Binding CurrentPage}" />
         </Grid>
     </Grid>
 </Window>

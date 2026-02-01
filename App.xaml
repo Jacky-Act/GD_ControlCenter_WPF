@@ -3,14 +3,23 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:GD_ControlCenter_WPF"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"
+             xmlns:pages="clr-namespace:GD_ControlCenter_WPF.Views.Pages"
              StartupUri="Tests/TestWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="DeepPurple" SecondaryColor="Lime" />
-
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <DataTemplate DataType="{x:Type vm:ControlPanelViewModel}">
+                <pages:ControlPanelView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:TimeSeriesViewModel}">
+                <pages:TimeSeriesView />
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

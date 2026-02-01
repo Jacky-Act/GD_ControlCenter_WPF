@@ -12,7 +12,8 @@
             <TabControl x:Name="MainTabControl"
                         materialDesign:NavigationRailAssist.ShowSelectionBackground="True"
                         Style="{StaticResource MaterialDesignNavigationRailTabControl}"
-                        TabStripPlacement="Left">
+                        TabStripPlacement="Left"
+                        SelectionChanged="MainTabControl_SelectionChanged">
 
                 <TabItem x:Name="DashboardTab">
                     <TabItem.Header>

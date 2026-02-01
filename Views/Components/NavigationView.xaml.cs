@@ -1,17 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using GD_ControlCenter_WPF.ViewModels;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace GD_ControlCenter_WPF.Views.Components
 {
@@ -27,5 +15,21 @@ namespace GD_ControlCenter_WPF.Views.Components
 
         // 关键：主窗口通过这个属性找到选中的内容
         public TabControl NavRail => MainTabControl;
+
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 只有当 DataContext 是 MainViewModel 时才执行切换逻辑
+            if (this.DataContext is MainViewModel vm)
+            {
+                if (MainTabControl.SelectedIndex == 0)
+                {
+                    vm.CurrentPage = vm.ControlPanelVM;
+                }
+                else if (MainTabControl.SelectedIndex == 1)
+                {
+                    vm.CurrentPage = vm.TimeSeriesVM;
+                }
+            }
+        }
     }
 }
