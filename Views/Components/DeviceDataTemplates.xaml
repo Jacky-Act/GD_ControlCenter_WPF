@@ -1,0 +1,26 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels">
+
+    <DataTemplate DataType="{x:Type vm:HighVoltageViewModel}">
+        <StackPanel>
+            <TextBlock Text="{Binding DisplayName}" FontSize="12" Opacity="0.6"/>
+            <TextBlock Text="{Binding DisplayValue}" FontSize="24" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:PeristalticPumpViewModel}">
+        <StackPanel>
+            <TextBlock Text="{Binding DisplayName}" FontSize="12" Opacity="0.6"/>
+            <TextBlock Text="{Binding DisplayValue}" FontSize="24" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:SyringePumpViewModel}">
+        <StackPanel>
+            <TextBlock Text="{Binding DisplayName}" FontSize="12" Opacity="0.6"/>
+            <TextBlock Text="{Binding DisplayValue}" FontSize="24" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

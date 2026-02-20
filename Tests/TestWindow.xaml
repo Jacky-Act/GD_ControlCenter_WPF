@@ -7,7 +7,7 @@
         xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components"
         xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"
         mc:Ignorable="d"
-        Title="TestWindow" Height="450" Width="800"
+        Title="TestWindow"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
