@@ -4,18 +4,33 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GD_ControlCenter_WPF"
+        xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"
+        xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid x:Name="RootGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        Title="GD Control Center" 
+        x:Name="RootWindow"
+        Icon="Assets/AppIcon.png"
+        Height="450" Width="800"
+        ResizeMode="CanResize"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Background="{DynamicResource MaterialDesignPaper}"
+        WindowStartupLocation="CenterScreen">
 
-        <Border Grid.Row="1" Background="Black" Margin="20">
-            <Border Height="40" Background="DeepPink" VerticalAlignment="Bottom">
-                <TextBlock Text="Hook 修复后，我应该完整可见" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
-            </Border>
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="72"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <components:NavigationView x:Name="SideNav" Grid.Column="0" />
+
+        <Border Grid.Column="1" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1,0,0,0">
+            <ContentControl Content="{Binding CurrentPage}" />
         </Border>
     </Grid>
 </Window>

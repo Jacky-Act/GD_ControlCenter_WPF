@@ -13,7 +13,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="72" />
                 </Grid.ColumnDefinitions>
 
                 <Button Command="{Binding OpenDetailCommand}"

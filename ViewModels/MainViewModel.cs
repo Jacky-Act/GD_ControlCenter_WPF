@@ -12,6 +12,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty]
         private object _currentPage; // 当前显示的页面对象
 
+        [ObservableProperty]
+        private double _dashboardHeight; // 用于绑定到界面的卡片区高度
+
         public ControlPanelViewModel ControlPanelVM { get; } = new();
         public TimeSeriesViewModel TimeSeriesVM { get; } = new();
 

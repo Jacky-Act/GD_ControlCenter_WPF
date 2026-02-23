@@ -13,9 +13,6 @@ namespace GD_ControlCenter_WPF.Views.Components
             InitializeComponent();
         }
 
-        // 关键：主窗口通过这个属性找到选中的内容
-        public TabControl NavRail => MainTabControl;
-
         private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // 只有当 DataContext 是 MainViewModel 时才执行切换逻辑
@@ -30,6 +27,17 @@ namespace GD_ControlCenter_WPF.Views.Components
                     vm.CurrentPage = vm.TimeSeriesVM;
                 }
             }
+        }
+
+
+        private void HelpButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            // 不符合MVVM
+        }
+
+        private void SettingsButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            // 不符合MVVM
         }
     }
 }
