@@ -23,6 +23,16 @@ namespace GD_ControlCenter_WPF.Views.Pages
         public ControlPanelView()
         {
             InitializeComponent();
+
+            // 初始化时添加波形图层
+            double[] dataX = { 1, 2, 3, 4, 5 };
+            double[] dataY = { 1, 4, 9, 16, 25 };
+
+            // 使用 Add.Scatter (散点/折线) 或 Add.Signal (高性能信号源)
+            SpecPlot.Plot.Add.Scatter(dataX, dataY);
+
+            // 刷新显示
+            SpecPlot.Refresh();
         }
     }
 }

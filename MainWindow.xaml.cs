@@ -61,7 +61,9 @@ namespace GD_ControlCenter_WPF
             if (this.DataContext is MainViewModel vm)
             {
                 // 核心逻辑：锁定卡片区域高度为初始窗口高度的 40%
-                vm.DashboardHeight = targetHeight * 0.4;
+                vm.DashboardHeight = targetHeight * 0.35;
+                // 确保子 VM 也拿到了这个初始高度
+                vm.ControlPanelVM.SetInitialHeight(targetHeight * 0.35);
             }
         }
 

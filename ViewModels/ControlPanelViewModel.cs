@@ -1,14 +1,35 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Timers;
+using GD_ControlCenter_WPF.Models.Spectrometer;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
     public partial class ControlPanelViewModel : ObservableObject
     {
-        // 设备卡片集合，前端将绑定到此属性
+        // --- 1. 数据模型引用 (Model) ---
+        [ObservableProperty]
+        private SpectrometerConfig _specModel = new();
+
+        // --- 2. 设备卡片集合 ---
         [ObservableProperty]
         private ObservableCollection<DeviceBaseViewModel> _devices = new();
+
+        // --- 3. 布局控制属性 ---
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(FullScreenButtonText))]
+        private double _dashboardHeight; // 上方卡片区高度
+        private double _originalHeight; // 初始计算高度备份
+
+        [ObservableProperty]
+        private double _paramHeaderHeight = 35; // 参数栏高度
+
+        [ObservableProperty]
+        private string _fullScreenButtonText = "大图显示";
+
+        [ObservableProperty]
+        private string _statusInfo = "光谱仪就绪";
 
         private readonly System.Timers.Timer _dataTimer;
         private readonly Random _random = new();
@@ -36,6 +57,36 @@ namespace GD_ControlCenter_WPF.ViewModels
             Devices.Add(new SyringePumpViewModel());     // Index 2 (注射泵)
 
             // 后续增加 3D 平台或其他设备只需在此 Add 即可
+        }
+
+        /// <summary>
+        /// 外部（如 MainWindow）初始化高度时调用
+        /// </summary>
+        public void SetInitialHeight(double height)
+        {
+            DashboardHeight = height;
+            _originalHeight = height;
+            // 动态设置参数栏高度，例如锁定在卡片区高度的 1/6 左右
+            ParamHeaderHeight = Math.Max(35, height * 0.15);
+        }
+
+        // --- 4. 交互命令 ---
+
+        [RelayCommand]
+        private void ToggleFullScreen()
+        {
+            if (DashboardHeight > 0)
+            {
+                DashboardHeight = 0; // 隐藏卡片区实现大图模式
+                FullScreenButtonText = "还原显示";
+                StatusInfo = "当前处于全屏监控模式";
+            }
+            else
+            {
+                DashboardHeight = _originalHeight; // 还原高度
+                FullScreenButtonText = "大图显示";
+                StatusInfo = "光谱仪就绪";
+            }
         }
 
         private void OnTimerElapsed(object? sender, ElapsedEventArgs e)

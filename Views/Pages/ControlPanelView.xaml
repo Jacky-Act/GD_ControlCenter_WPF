@@ -3,13 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components" xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid Background="{DynamicResource MaterialDesignPaper}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="{Binding DataContext.DashboardHeight, 
-                     RelativeSource={RelativeSource AncestorType=Window}}" />
+            <RowDefinition Height="{Binding DashboardHeight}" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -36,11 +37,16 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1.5*" />
                     <ColumnDefinition Width="1.5*" />
-                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="1.5*" />
+                    <ColumnDefinition Width="1.5*" />
                     <ColumnDefinition Width="4*" />
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:Card Grid.Column="0" Margin="5,5,0,5" UniformCornerRadius="8"
+                <materialDesign:Card Grid.Column="0" Margin="5,5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <TextBlock Text="电池" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Column="1" Margin="5,5,0,5" UniformCornerRadius="8"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -50,7 +56,7 @@
                     </Button>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="1" Margin="5,2.5,0,5" UniformCornerRadius="8"
+                <materialDesign:Card Grid.Column="2" Margin="5,2.5,0,5" UniformCornerRadius="8"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="转向阀门" Margin="0,0,0,8" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
@@ -76,7 +82,7 @@
                     </StackPanel>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="2" Margin="5,2.5,0,5" UniformCornerRadius="8"
+                <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <Button Command="{Binding Devices[3].OpenDetailCommand}"
                 Style="{StaticResource MaterialDesignFlatButton}"
@@ -85,13 +91,13 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" 
                                         Foreground="{Binding Devices[3].ThemeColor}"/>
-                            <TextBlock Text="三维平台控制" FontSize="24" FontWeight="Bold" 
+                            <TextBlock Text="三维平台" FontSize="24" FontWeight="Bold" 
                            Foreground="{Binding Devices[3].ThemeColor}"/>
                         </StackPanel>
                     </Button>
                 </materialDesign:Card>
 
-                <components:DeviceControlCard Grid.Column="3" 
+                <components:DeviceControlCard Grid.Column="4" 
                                   DataContext="{Binding Devices[2]}" 
                                   Margin="5,2.5,5,5"/>
             </Grid>
@@ -103,12 +109,58 @@
                 <ColumnDefinition Width="80" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="LightBlue" Margin="5,0,2.5,5" CornerRadius="8">
-                <TextBlock Text="图表展示区域" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="20" Opacity="0.5"/>
-            </Border>
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="{Binding ParamHeaderHeight}" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <Border Grid.Column="1" Background="LightSalmon" Margin="2.5,0,5,5" CornerRadius="8">
-                <TextBlock Text="操作按钮区域" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="16" Opacity="0.5"/>
+                <Border Grid.Row="0" Background="{DynamicResource MaterialDesignPaper}" Margin="5,2,2.5,2" CornerRadius="4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="积分时间:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
+                            <Button Style="{StaticResource MaterialDesignFlatButton}" 
+                    Content="{Binding SpecConfig.IntegrationTimeMs, StringFormat={}{0} ms}"
+                    Padding="4,0" Height="24"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="平均次数:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
+                            <Button Style="{StaticResource MaterialDesignFlatButton}" 
+                    Content="{Binding SpecConfig.AveragingCount}"
+                    Padding="4,0" Height="24"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2" 
+                   Text="{Binding StatusInfo}" 
+                   VerticalAlignment="Center" 
+                   HorizontalAlignment="Center" 
+                   FontWeight="Bold" 
+                   Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1" Background="Black" Margin="5,0,2.5,5" CornerRadius="8">
+                    <ScottPlot:WpfPlot x:Name="SpecPlot" />
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="1" Margin="2.5,0,5,5">
+                <UniformGrid Columns="1" Rows="5">
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="启动光谱" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" 
+                    Content="{Binding FullScreenButtonText}"
+                    Command="{Binding ToggleFullScreenCommand}" />
+                </UniformGrid>
             </Border>
         </Grid>
     </Grid>
