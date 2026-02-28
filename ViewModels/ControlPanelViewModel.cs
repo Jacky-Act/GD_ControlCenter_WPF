@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Timers;
 using GD_ControlCenter_WPF.Models.Spectrometer;
+using GD_ControlCenter_WPF.Services;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -34,8 +35,18 @@ namespace GD_ControlCenter_WPF.ViewModels
         private readonly System.Timers.Timer _dataTimer;
         private readonly Random _random = new();
 
-        public ControlPanelViewModel()
+        // 2. 注入通用设备服务
+        private readonly GeneralDeviceService _generalDeviceService;
+
+        // 3. 定义转向阀状态属性
+        [ObservableProperty]
+        private bool _isSteeringValveActive;
+
+
+        public ControlPanelViewModel(GeneralDeviceService generalDeviceService)
         {
+            _generalDeviceService = generalDeviceService;
+
             InitializeDevices();
 
             // 设置定时器，每 500ms 更新一次数据
@@ -115,6 +126,30 @@ namespace GD_ControlCenter_WPF.ViewModels
                     device.DisplayValue = device is HighVoltageViewModel ? "0.0 V" : "0 RPM";
                 }
             }
+        }
+
+        // 5. 核心：当 UI 切换开关时触发此方法
+        partial void OnIsSteeringValveActiveChanged(bool value)
+        {
+            // 下发硬件指令：true 对应通道2，false 对应通道1
+            _generalDeviceService.ControlSteeringValve(value);
+
+            // 埋点：后续在此处添加日志写入逻辑
+            // LogService.Write($"转向阀切换至通道 {(value ? 2 : 1)}");
+        }
+
+        // 点击点火按钮时触发此方法
+        [RelayCommand]
+        private void Fire()
+        {
+            // 调用通用设备服务的点火接口
+            _generalDeviceService.Fire();
+
+            // 可以在此处更新状态栏信息，给用户反馈
+            StatusInfo = "正在执行点火序列...";
+
+            // 日志埋点：记录点火操作
+            // LogService.Write("手动触发点火指令");
         }
     }
 }

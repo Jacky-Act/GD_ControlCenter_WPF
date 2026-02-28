@@ -18,17 +18,23 @@ namespace GD_ControlCenter_WPF.Views.Components
             // 只有当 DataContext 是 MainViewModel 时才执行切换逻辑
             if (this.DataContext is MainViewModel vm)
             {
-                if (MainTabControl.SelectedIndex == 0)
+                switch (MainTabControl.SelectedIndex)
                 {
-                    vm.CurrentPage = vm.ControlPanelVM;
-                }
-                else if (MainTabControl.SelectedIndex == 1)
-                {
-                    vm.CurrentPage = vm.TimeSeriesVM;
+                    case 0:
+                        vm.CurrentPage = vm.ControlPanelVM;
+                        break;
+                    case 1:
+                        vm.CurrentPage = vm.TimeSeriesVM;
+                        break;
+                    case 2:
+                        vm.CurrentPage = vm.LogVM;
+                        break;
+                    case 3:
+                        vm.CurrentPage = vm.SpatialDistributionVM;
+                        break;
                 }
             }
         }
-
 
         private void HelpButton_Click(object sender, System.Windows.RoutedEventArgs e)
         {

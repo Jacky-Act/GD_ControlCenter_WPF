@@ -46,13 +46,13 @@
                     <TextBlock Text="电池" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="1" Margin="5,5,0,5" UniformCornerRadius="8"
-                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                <materialDesign:Card Grid.Column="1" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
-                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                    Height="Auto" Padding="0">
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                    Height="Auto" Padding="0"
+                                    Command="{Binding FireCommand}">
                         <TextBlock Text="点火" FontSize="24" FontWeight="Bold" Foreground="IndianRed" 
-                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </materialDesign:Card>
 
@@ -61,7 +61,8 @@
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="转向阀门" Margin="0,0,0,8" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
                         <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                            ToolTip="MaterialDesignSwitchToggleButton with Content and ToggleButtonAssist.OnContent">
+                                      IsChecked="{Binding IsSteeringValveActive, Mode=TwoWay}"
+                                      ToolTip="切换转向阀通道">
                             <materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
                                 <SolidColorBrush Color="#673ab7" />
                             </materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>

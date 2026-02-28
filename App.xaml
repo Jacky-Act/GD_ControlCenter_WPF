@@ -12,7 +12,7 @@
                 <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="DeepPurple" SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
                 <ResourceDictionary Source="/Views/Components/DeviceDataTemplates.xaml" />
-                <ResourceDictionary Source="Views/Components/GlobalStyles.xaml"/>
+                <ResourceDictionary Source="/Views/Components/GlobalStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <DataTemplate DataType="{x:Type vm:ControlPanelViewModel}">
@@ -22,6 +22,15 @@
             <DataTemplate DataType="{x:Type vm:TimeSeriesViewModel}">
                 <pages:TimeSeriesView />
             </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:LogViewModel}">
+                <pages:LogView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:SpatialDistributionViewModel}">
+                <pages:SpatialDistributionView />
+            </DataTemplate>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
