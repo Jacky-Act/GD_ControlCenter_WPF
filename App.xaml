@@ -3,8 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:GD_ControlCenter_WPF"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"
+             xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"            
              xmlns:pages="clr-namespace:GD_ControlCenter_WPF.Views.Pages"
+             xmlns:helpers="clr-namespace:GD_ControlCenter_WPF.Helpers"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
@@ -31,6 +32,10 @@
                 <pages:SpatialDistributionView />
             </DataTemplate>
 
+            <helpers:BatteryWidthConverter x:Key="BatteryWidthConverter"/>
+            <helpers:BatteryStatusColorConverter x:Key="BatteryStatusColorConverter"/>
+            <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <helpers:InverseBoolToVisConverter x:Key="InverseBoolToVisConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

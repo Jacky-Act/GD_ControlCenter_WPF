@@ -38,14 +38,21 @@ namespace GD_ControlCenter_WPF.ViewModels
         // 2. 注入通用设备服务
         private readonly GeneralDeviceService _generalDeviceService;
 
+        [ObservableProperty]
+        private BatteryService _batterySvc;
+
         // 3. 定义转向阀状态属性
         [ObservableProperty]
         private bool _isSteeringValveActive;
 
 
-        public ControlPanelViewModel(GeneralDeviceService generalDeviceService)
+        public ControlPanelViewModel(GeneralDeviceService generalDeviceService, BatteryService batteryService)
         {
             _generalDeviceService = generalDeviceService;
+            _batterySvc = batteryService; // 接入电池服务
+
+            // 启动电池监控
+            _batterySvc.Start();
 
             InitializeDevices();
 

@@ -27,14 +27,7 @@ namespace GD_ControlCenter_WPF.Services
         private bool _isOnline;       // 通讯是否在线
 
         [ObservableProperty]
-        private bool _isWired;        // 是否接入外部电线供电 (由充电MOS开启判定) 
-
-        [ObservableProperty]
         private bool _isCharging;     // 是否正在执行充电动作 (电流 > 0) 
-
-        [ObservableProperty]
-        private bool _isBatteryAssisting; // 电池辅助放电状态：接入电线但外部电源功率不足，电池在倒贴出电 
-
         #endregion
 
         public BatteryService(ISerialPortService serialPortService)
@@ -102,33 +95,28 @@ namespace GD_ControlCenter_WPF.Services
         /// </summary>
         /// <param name="frame">由 ProtocolService 截取的完整 34 字节数据包 </param>
         private void ParseBatteryData(byte[] frame)
-        {
+                                                                                                                                                       {
+            System.Diagnostics.Debug.WriteLine("收到电池数据帧");
             if (frame.Length < 34) return;
 
             try
             {
-                // 解析电流 (Index 6,7)：单位 10mA，高字节在前，正充负放 
-                short currRaw = (short)((frame[6] << 8) | frame[7]);
+                // 解析电流数据 (Index 6, 7)
+                byte byte6 = frame[6];
+                byte byte7 = frame[7];
 
                 // 解析剩余容量 (Index 23) 
                 Percentage = frame[23];
 
-                // 解析 FET 控制状态 (Index 24)：bit0: 充电 MOS 状态；bit1: 放电 MOS 状态 
-                byte mosStatus = frame[24];
-                bool chargeMosOpen = (mosStatus & 0x01) != 0;
+                // --- 充电判定逻辑 ---
+                // 逻辑：
+                // 1. 未充电判断：第六字节最高位为 1 (代表负电流/放电) OR (第六字节和第七字节均为 0)
+                // 2. 充电判断：第六字节最高位为 0 (代表正电流) AND (第六字节和第七字节至少一个不为 0)
+                bool isNegativeOrZero = (byte6 >> 7 == 1) || (byte6 == 0 && byte7 == 0);
+                IsCharging = !isNegativeOrZero;
 
-                // --- 业务逻辑判定 ---
-
-                // 判定外部供电：只要充电 MOS 开启，即视为有外部电源输入 
-                IsWired = chargeMosOpen;
-
-                // 判定充电动作：电流矢量为正 
-                IsCharging = currRaw > 0;
-
-                // 判定电池辅助放电：已接电线但电流仍为负，说明外部功率无法覆盖负载，电池正在出电补充 
-                IsBatteryAssisting = IsWired && currRaw < 0;
-
-                IsOnline = true;
+                // 更新通讯状态
+                IsOnline = true; 
                 _lastReceivedTime = DateTime.Now;
             }
             catch (Exception)

@@ -11,28 +11,6 @@ namespace GD_ControlCenter_WPF
             ApplyScreenProportionalSize();
         }
 
-        ///// <summary>
-        ///// 按照屏幕比例初始化窗口尺寸
-        ///// </summary>
-        //private void ApplyScreenProportionalSize()
-        //{
-        //    double screenWidth = SystemParameters.WorkArea.Width;
-        //    double screenHeight = SystemParameters.WorkArea.Height;
-
-        //    // 按照之前测试成功的比例设置（宽65%, 高60%）
-        //    double widthRatio = 0.65;
-        //    double heightRatio = 0.60;
-
-        //    double targetWidth = screenWidth * widthRatio;
-        //    double targetHeight = screenHeight * heightRatio;
-
-        //    this.Width = targetWidth;
-        //    this.Height = targetHeight;
-
-        //    // 设置最小尺寸
-        //    this.MinWidth = targetWidth;
-        //    this.MinHeight = targetHeight;
-        //}
         /// <summary>
         /// 按照屏幕比例初始化窗口尺寸，并计算卡片区固定高度 [cite: 60, 63]
         /// </summary>

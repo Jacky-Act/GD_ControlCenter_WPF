@@ -3,58 +3,59 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:GD_ControlCenter_WPF.Views.Components"
              xmlns:md="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
-             d:DesignHeight="40" d:DesignWidth="80">
+             d:DesignHeight="50" d:DesignWidth="140">
     <Grid Margin="5">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="65" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" BorderBrush="{DynamicResource MaterialDesignBody}" 
-                BorderThickness="2" CornerRadius="4" Padding="2">
-            <Grid>
-                <Rectangle x:Name="CapacityBar" HorizontalAlignment="Left">
-                    <Rectangle.Width>
-                        <MultiBinding Converter="{StaticResource BatteryWidthConverter}">
-                            <Binding Path="Percentage" />
-                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" />
-                        </MultiBinding>
-                    </Rectangle.Width>
-                    <Rectangle.Style>
-                        <Style TargetType="Rectangle">
-                            <Setter Property="Fill" Value="#4CAF50"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Percentage, Converter={StaticResource LessThanConverter}, ConverterParameter=20}" Value="True">
-                                    <Setter Property="Fill" Value="#F44336"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsBatteryAssisting}" Value="True">
-                                    <Setter Property="Fill" Value="#FFC107"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Rectangle.Style>
-                </Rectangle>
+                <Border Grid.Column="0" 
+                        BorderBrush="{DynamicResource MaterialDesignBody}" 
+                        BorderThickness="2" 
+                        CornerRadius="3" 
+                        Height="24"
+                        Padding="2">
+                    <Grid x:Name="BatteryCanvas">
+                        <Rectangle x:Name="CapacityBar" HorizontalAlignment="Left"
+                                   Fill="{Binding Percentage, Converter={StaticResource BatteryStatusColorConverter}}">
+                            <Rectangle.Width>
+                                <MultiBinding Converter="{StaticResource BatteryWidthConverter}">
+                                    <Binding Path="Percentage" />
+                                    <Binding Path="ActualWidth" ElementName="BatteryCanvas" />
+                                </MultiBinding>
+                            </Rectangle.Width>
+                        </Rectangle>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <md:PackIcon Kind="LightningBolt" Foreground="White" Width="16" Height="16"
-                                 Visibility="{Binding IsCharging, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                    <md:PackIcon Kind="PowerPlug" Foreground="{DynamicResource MaterialDesignBody}" Width="16" Height="16"
-                                 Visibility="{Binding IsWired, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                    <md:PackIcon Kind="AlertCircleOutline" Foreground="Gray" Width="16" Height="16"
-                                 Visibility="{Binding IsOnline, Converter={StaticResource InverseBoolToVisConverter}}"/>
-                </StackPanel>
+                        <md:PackIcon Kind="LightningBolt" 
+                                     Foreground="White" 
+                                     Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Visibility="{Binding IsCharging, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                <TextBlock Text="{Binding Percentage, StringFormat={}{0}%}" 
-                           FontSize="10" FontWeight="Bold" 
-                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,0"
-                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                        <md:PackIcon Kind="PowerPlugOff" 
+                                     Foreground="{DynamicResource MaterialDesignBody}" 
+                                     Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Visibility="{Binding IsOnline, Converter={StaticResource InverseBoolToVisConverter}}"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Width="4" Height="10" 
+                        Background="{DynamicResource MaterialDesignBody}" 
+                        CornerRadius="0,2,2,0" 
+                        VerticalAlignment="Center" Margin="1,0,0,0"/>
             </Grid>
-        </Border>
 
-        <Border Grid.Column="1" Width="4" Height="12" Background="{DynamicResource MaterialDesignBody}" 
-                CornerRadius="0,2,2,0" VerticalAlignment="Center" Margin="1,0,0,0"/>
+            <TextBlock Text="{Binding Percentage, StringFormat={}{0}%}" 
+                       FontSize="16" FontWeight="ExtraBold" 
+                       VerticalAlignment="Center" 
+                       Margin="10,0,0,0"
+                       Foreground="{DynamicResource MaterialDesignBody}"/>
+        </StackPanel>
     </Grid>
 </UserControl>

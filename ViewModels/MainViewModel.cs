@@ -21,21 +21,26 @@ namespace GD_ControlCenter_WPF.ViewModels
         public LogViewModel LogVM { get; } = new();
         public SpatialDistributionViewModel SpatialDistributionVM { get; } = new();
 
+        private readonly ProtocolService _protocolService;
+        private readonly BatteryService _batteryService;
+
         public MainViewModel()
         {
+
             // 1. 实例化基础服务（实际项目中建议使用依赖注入容器）
             var serialService = new SerialPortService();
             var generalService = new GeneralDeviceService(serialService);
 
             // 2. 设置测试用的串口号和波特率
             // 假设你的硬件或虚拟串口连接在 COM2，波特率为 9600
-            serialService.Open("COM2", 9600);
+            serialService.Open("COM3", 9600);
 
-            // 3. 实例化协议服务（它会自动开始监听 serialService 发出的消息）
-            var protocolService = new ProtocolService();
+            _protocolService = new ProtocolService();
+            _batteryService = new BatteryService(serialService);
+            _batteryService.Start();
 
             // 2. 将服务传给 ControlPanelVM
-            ControlPanelVM = new ControlPanelViewModel(generalService);
+            ControlPanelVM = new ControlPanelViewModel(generalService, _batteryService);
 
             // 默认显示仪表台
             CurrentPage = ControlPanelVM;

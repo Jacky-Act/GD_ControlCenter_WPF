@@ -43,7 +43,9 @@
                 </Grid.ColumnDefinitions>
 
                 <materialDesign:Card Grid.Column="0" Margin="5,5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <TextBlock Text="电池" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+                    <components:BatteryIcon DataContext="{Binding BatterySvc}" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Center"/>
                 </materialDesign:Card>
 
                 <materialDesign:Card Grid.Column="1" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
