@@ -19,11 +19,12 @@
                 <Button Command="{Binding OpenDetailCommand}"
                         Style="{StaticResource MaterialDesignFlatButton}"
                         Height="Auto" 
-                        Padding="16" 
-                        HorizontalContentAlignment="Stretch">
-                    <ContentControl Content="{Binding}" />
+                        Padding="8,6" 
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch">
+                    <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                 </Button>
-
+                
                 <Button Grid.Column="1"
                         Command="{Binding ToggleCommand}"
                         HorizontalAlignment="Stretch"

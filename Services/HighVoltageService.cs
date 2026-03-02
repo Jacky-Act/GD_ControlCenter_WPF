@@ -19,16 +19,12 @@ namespace GD_ControlCenter_WPF.Services
         private DateTime _lastReceivedTime = DateTime.MinValue;
         private const int MaxOfflineSeconds = 10;
 
-        #region 向外暴露的业务属性
+        #region 业务属性 (纯数据)
 
-        [ObservableProperty]
-        private int _voltage;      // 实时电压值 (单位：V)，范围 0-1500V 
-
-        [ObservableProperty]
-        private int _current;      // 实时电流值 (单位：mA)，范围 0-100mA 
-
-        [ObservableProperty]
-        private bool _isOnline;    // 通讯是否在线
+        // 移除 [ObservableProperty]，改为普通属性
+        public int Voltage { get; private set; }      // 实时电压值 (V)
+        public int Current { get; private set; }      // 实时电流值 (mA)
+        public bool IsOnline { get; private set; }    // 通讯状态
 
         #endregion
 

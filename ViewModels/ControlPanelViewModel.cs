@@ -36,7 +36,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         private readonly Random _random = new();
 
         // 2. 注入通用设备服务
+        private readonly JsonConfigService _jsonConfigService;
         private readonly GeneralDeviceService _generalDeviceService;
+        private readonly HighVoltageService _highVoltageService;
 
         [ObservableProperty]
         private BatteryService _batterySvc;
@@ -46,11 +48,13 @@ namespace GD_ControlCenter_WPF.ViewModels
         private bool _isSteeringValveActive;
 
 
-        public ControlPanelViewModel(GeneralDeviceService generalDeviceService, BatteryService batteryService)
+        public ControlPanelViewModel(GeneralDeviceService generalDeviceService, BatteryService batteryService, 
+            HighVoltageService highVoltageService, JsonConfigService jsonConfigService)
         {
             _generalDeviceService = generalDeviceService;
             _batterySvc = batteryService; // 接入电池服务
-
+            _highVoltageService = highVoltageService; // 保存引用
+            _jsonConfigService = jsonConfigService; // <--- 保存引用
             // 启动电池监控
             _batterySvc.Start();
 
@@ -66,10 +70,11 @@ namespace GD_ControlCenter_WPF.ViewModels
         private void InitializeDevices()
         {
             // 初始化高压电源并加入集合
-            Devices.Add(new HighVoltageViewModel());
+            // 传入两个 service
+            Devices.Add(new HighVoltageViewModel(_highVoltageService, _jsonConfigService));
 
             // 初始化蠕动泵并加入集合
-            Devices.Add(new PeristalticPumpViewModel());
+            Devices.Add(new PeristalticPumpViewModel(_generalDeviceService, _jsonConfigService));
 
             // 新增：用于卡片 3 和 卡片 4 的占位 ViewModel（假设已创建对应类或使用基类占位）
             Devices.Add(new SyringePumpViewModel());     // Index 2 (注射泵)
@@ -111,18 +116,19 @@ namespace GD_ControlCenter_WPF.ViewModels
         {
             foreach (var device in Devices)
             {
-                // 只有当设备处于“启动”状态时才模拟数据变化
+                // 如果是高压电源，由于它内部已经绑定了 Service，这里不再手动赋值 DisplayValue
+                if (device is HighVoltageViewModel)
+                {
+                    // 逻辑已迁移至 HighVoltageViewModel 内部，此处留空或处理非数据 UI 逻辑
+                    continue;
+                }
+
+                // 只有当设备处于“启动”状态时才模拟数据变化（针对尚未重构的设备）
                 if (device.IsRunning)
                 {
-                    if (device is HighVoltageViewModel)
+                    if (device is PeristalticPumpViewModel)
                     {
-                        // 模拟电压波动 (15.0 - 15.5 V)
-                        double voltage = 15.0 + _random.NextDouble() * 0.5;
-                        device.DisplayValue = $"{voltage:F1} V";
-                    }
-                    else if (device is PeristalticPumpViewModel)
-                    {
-                        // 模拟转速波动 (100 - 105 RPM)
+                        // 暂时保留蠕动泵模拟，直到你完成 PeristalticPumpService 的对接
                         int rpm = 100 + _random.Next(0, 6);
                         device.DisplayValue = $"{rpm} RPM";
                     }
@@ -130,7 +136,7 @@ namespace GD_ControlCenter_WPF.ViewModels
                 else
                 {
                     // 未启动时显示初始值
-                    device.DisplayValue = device is HighVoltageViewModel ? "0.0 V" : "0 RPM";
+                    if (device is PeristalticPumpViewModel) device.DisplayValue = "0 RPM";
                 }
             }
         }

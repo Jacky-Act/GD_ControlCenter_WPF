@@ -3,24 +3,142 @@
                     xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels">
 
     <DataTemplate DataType="{x:Type vm:HighVoltageViewModel}">
-        <StackPanel>
-            <TextBlock Text="{Binding DisplayName}" FontSize="12" Opacity="0.6"/>
-            <TextBlock Text="{Binding DisplayValue}" FontSize="24" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
-        </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" 
+                   Text="{Binding DisplayName}" 
+                   FontSize="12" 
+                   Opacity="0.6" 
+                   HorizontalAlignment="Left" 
+                   VerticalAlignment="Top"
+                   Margin="0"/>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="设置电压" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="{Binding SetVoltage}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="设置电流" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="{Binding SetCurrent}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+
+                <Border Grid.Column="2" Width="1" Background="{DynamicResource MaterialDesignDivider}" 
+                    Margin="8,4" VerticalAlignment="Stretch" SnapsToDevicePixels="True"/>
+
+                <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                    <TextBlock Text="监控电压" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="{Binding MonitorVoltage}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                    <TextBlock Text="监控电流" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="{Binding MonitorCurrent}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+            </Grid>
+        </Grid>
     </DataTemplate>
 
     <DataTemplate DataType="{x:Type vm:PeristalticPumpViewModel}">
-        <StackPanel>
-            <TextBlock Text="{Binding DisplayName}" FontSize="12" Opacity="0.6"/>
-            <TextBlock Text="{Binding DisplayValue}" FontSize="24" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
-        </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" 
+                   Text="{Binding DisplayName}" 
+                   FontSize="12" Opacity="0.6" 
+                   HorizontalAlignment="Left" VerticalAlignment="Top"/>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="设定转速" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="{Binding SettingSpeed}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="转动方向" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="{Binding DirectionText}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+            </Grid>
+        </Grid>
     </DataTemplate>
 
     <DataTemplate DataType="{x:Type vm:SyringePumpViewModel}">
-        <StackPanel>
-            <TextBlock Text="{Binding DisplayName}" FontSize="12" Opacity="0.6"/>
-            <TextBlock Text="{Binding DisplayValue}" FontSize="24" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
-        </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" 
+                   Text="{Binding DisplayName}" 
+                   FontSize="12" 
+                   Opacity="0.6" 
+                   HorizontalAlignment="Left" 
+                   VerticalAlignment="Top"
+                   Margin="0"/>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="抽取容量" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="0" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="运转方向" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="CW" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="当前步骤" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <Viewbox MaxHeight="32" Margin="2,0">
+                        <TextBlock Text="抽" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                    </Viewbox>
+                </StackPanel>
+            </Grid>
+        </Grid>
     </DataTemplate>
 
 </ResourceDictionary>
