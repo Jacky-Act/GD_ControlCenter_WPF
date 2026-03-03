@@ -70,14 +70,13 @@ namespace GD_ControlCenter_WPF.ViewModels
         private void InitializeDevices()
         {
             // 初始化高压电源并加入集合
-            // 传入两个 service
             Devices.Add(new HighVoltageViewModel(_highVoltageService, _jsonConfigService));
 
             // 初始化蠕动泵并加入集合
             Devices.Add(new PeristalticPumpViewModel(_generalDeviceService, _jsonConfigService));
 
-            // 新增：用于卡片 3 和 卡片 4 的占位 ViewModel（假设已创建对应类或使用基类占位）
-            Devices.Add(new SyringePumpViewModel());     // Index 2 (注射泵)
+            // 初始化注射泵并加入集合
+            Devices.Add(new SyringePumpViewModel(_generalDeviceService, _jsonConfigService));
 
             // 后续增加 3D 平台或其他设备只需在此 Add 即可
         }

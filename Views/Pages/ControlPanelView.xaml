@@ -44,8 +44,8 @@
 
                 <materialDesign:Card Grid.Column="0" Margin="5,5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
                     <components:BatteryIcon DataContext="{Binding BatterySvc}" 
-                            HorizontalAlignment="Center" 
-                            VerticalAlignment="Center"/>
+                                            HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
                 </materialDesign:Card>
 
                 <materialDesign:Card Grid.Column="1" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
@@ -58,44 +58,79 @@
                     </Button>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="2" Margin="5,2.5,0,5" UniformCornerRadius="8"
-                                     materialDesign:ElevationAssist.Elevation="Dp2">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock Text="转向阀门" Margin="0,0,0,8" HorizontalAlignment="Center" FontSize="12" Opacity="0.6"/>
-                        <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                                      IsChecked="{Binding IsSteeringValveActive, Mode=TwoWay}"
-                                      ToolTip="切换转向阀通道">
-                            <materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
-                                <SolidColorBrush Color="#673ab7" />
-                            </materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
-                            <materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
-                                <SolidColorBrush Color="#3a7e00" />
-                            </materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
+                <materialDesign:Card Grid.Column="2" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                            <materialDesign:PackIcon Kind="Pin" RenderTransformOrigin=".5,.5">
-                                <materialDesign:PackIcon.RenderTransform>
-                                    <RotateTransform Angle="45" />
-                                </materialDesign:PackIcon.RenderTransform>
-                            </materialDesign:PackIcon>
+                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="#673ab7" Opacity="0.5"
+                                   HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
-                            <materialDesign:ToggleButtonAssist.OnContent>
-                                <materialDesign:PackIcon Kind="Pin" />
-                            </materialDesign:ToggleButtonAssist.OnContent>
-                        </ToggleButton>
-                    </StackPanel>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock x:Name="TxtCH1" Text="1" VerticalAlignment="Center" Margin="0,0,12,0" 
+                                       FontSize="14" FontWeight="Bold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#673ab7"/>
+                                        <Setter Property="Opacity" Value="0.5"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSteeringValveActive}" Value="False">
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                          IsChecked="{Binding IsSteeringValveActive, Mode=TwoWay}"
+                                          ToolTip="切换转向阀通道">
+                                <materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
+                                    <SolidColorBrush Color="#673ab7" />
+                                </materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
+                                <materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
+                                    <SolidColorBrush Color="#673ab7" />
+                                </materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
+
+                                <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />
+                                <materialDesign:ToggleButtonAssist.OnContent>
+                                    <materialDesign:PackIcon Kind="ArrowRight" />
+                                </materialDesign:ToggleButtonAssist.OnContent>
+                            </ToggleButton>
+
+                            <TextBlock x:Name="TxtCH2" Text="2" VerticalAlignment="Center" Margin="12,0,0,0" 
+                                       FontSize="14" FontWeight="Bold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#673ab7"/>
+                                        <Setter Property="Opacity" Value="0.5"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSteeringValveActive}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
                 </materialDesign:Card>
 
                 <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8"
                                      materialDesign:ElevationAssist.Elevation="Dp2">
                     <Button Command="{Binding Devices[3].OpenDetailCommand}"
-                Style="{StaticResource MaterialDesignFlatButton}"
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                Height="Auto" Padding="0">
+                            Style="{StaticResource MaterialDesignFlatButton}"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            Height="Auto" Padding="0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" 
-                                        Foreground="{Binding Devices[3].ThemeColor}"/>
+                                       Foreground="{Binding Devices[3].ThemeColor}"/>
                             <TextBlock Text="三维平台" FontSize="24" FontWeight="Bold" 
-                           Foreground="{Binding Devices[3].ThemeColor}"/>
+                                       Foreground="{Binding Devices[3].ThemeColor}"/>
                         </StackPanel>
                     </Button>
                 </materialDesign:Card>
@@ -129,23 +164,20 @@
                         <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="积分时间:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
                             <Button Style="{StaticResource MaterialDesignFlatButton}" 
-                    Content="{Binding SpecConfig.IntegrationTimeMs, StringFormat={}{0} ms}"
-                    Padding="4,0" Height="24"/>
+                                    Content="{Binding SpecConfig.IntegrationTimeMs, StringFormat={}{0} ms}"
+                                    Padding="4,0" Height="24"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="平均次数:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
                             <Button Style="{StaticResource MaterialDesignFlatButton}" 
-                    Content="{Binding SpecConfig.AveragingCount}"
-                    Padding="4,0" Height="24"/>
+                                    Content="{Binding SpecConfig.AveragingCount}"
+                                    Padding="4,0" Height="24"/>
                         </StackPanel>
 
-                        <TextBlock Grid.Column="2" 
-                   Text="{Binding StatusInfo}" 
-                   VerticalAlignment="Center" 
-                   HorizontalAlignment="Center" 
-                   FontWeight="Bold" 
-                   Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StatusInfo}" 
+                                   VerticalAlignment="Center" HorizontalAlignment="Center" 
+                                   FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
                     </Grid>
                 </Border>
 
@@ -160,9 +192,8 @@
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" 
-                    Content="{Binding FullScreenButtonText}"
-                    Command="{Binding ToggleFullScreenCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding FullScreenButtonText}"
+                            Command="{Binding ToggleFullScreenCommand}" />
                 </UniformGrid>
             </Border>
         </Grid>

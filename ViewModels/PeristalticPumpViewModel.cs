@@ -37,7 +37,7 @@ namespace GD_ControlCenter_WPF.ViewModels
         {
             var config = _configService.Load();
             SettingSpeed = $"{config.LastPumpSpeed}";
-            DirectionText = config.IsPumpClockwise ? "前向" : "后向";
+            DirectionText = config.IsPumpClockwise ? "后向" : "前向";
         }
 
         /// <summary>

@@ -37,7 +37,7 @@ namespace GD_ControlCenter_WPF.ViewModels
 
             // 2. 设置测试用的串口号和波特率
             // 假设你的硬件或虚拟串口连接在 COM2，波特率为 9600
-            serialService.Open("COM3", 9600);
+            serialService.Open("COM2", 9600);
 
             // 2. 加载历史配置
             var config = _configService.Load();

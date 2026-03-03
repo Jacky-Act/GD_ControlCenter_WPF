@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using GD_ControlCenter_WPF.Models;
 using GD_ControlCenter_WPF.Services;
 using System;
+using System.Windows;
 
 namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 {
@@ -36,21 +37,31 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         }
 
         /// <summary>
-        /// 执行“应用并保存”逻辑
+        /// 执行“应用”逻辑
         /// </summary>
         [RelayCommand]
         private void Apply()
         {
-            // 1. 下发硬件指令：立即更改电源输出
-            _hvService.SetHighVoltage(TargetVoltage, TargetCurrent);
+            // 1. 范围校验
+            if (TargetVoltage < 0 || TargetVoltage > 1500)
+            {
+                MessageBox.Show("电压设定值超出范围 (0-1500 V)", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-            // 2. 持久化存储：更新本地 JSON 配置文件
+            if (TargetCurrent < 0 || TargetCurrent > 100)
+            {
+                MessageBox.Show("电流设定值超出范围 (0-100 mA)", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 2. 持久化保存到配置文件，供后续“启动”按钮读取
             var config = _configService.Load();
             config.LastHvVoltage = TargetVoltage;
             config.LastHvCurrent = TargetCurrent;
             _configService.Save(config);
 
-            // 3. 执行关闭窗口的回调
+            // 3. 执行关闭回调
             _closeAction?.Invoke();
         }
     }
