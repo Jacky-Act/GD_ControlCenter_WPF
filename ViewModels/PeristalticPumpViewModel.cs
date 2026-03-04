@@ -2,6 +2,7 @@
 using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.ViewModels.Dialogs;
 using GD_ControlCenter_WPF.Views.Dialogs;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
 
@@ -63,21 +64,26 @@ namespace GD_ControlCenter_WPF.ViewModels
             window.ShowDialog();
         }
 
-        ///// <summary>
-        ///// 当点击右侧“启动/停止”按钮时触发
-        ///// </summary>
-        //partial void OnIsRunningChanged(bool value)
-        //{
-        //    // 每次切换开关时，重新读取最新的配置参数
-        //    var config = _configService.Load();
+        /// <summary>
+        /// 当点击右侧“启动/停止”按钮时触发
+        /// </summary>
+        protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
 
-        //    // 下发指令到硬件
-        //    // 参数：转速(short), 方向(bool), 是否启动(bool)
-        //    _generalService.ControlPeristalticPump(
-        //        (short)config.LastPumpSpeed,
-        //        config.IsPumpClockwise,
-        //        value
-        //    );
-        //}
+            // 检查是否是 IsRunning 属性发生了变化
+            if (e.PropertyName == nameof(IsRunning))
+            {
+                // 每次切换开关时，重新读取最新的配置参数
+                var config = _configService.Load();
+
+                // 下发指令到硬件
+                _generalService.ControlPeristalticPump(
+                    (short)config.LastPumpSpeed,
+                    config.IsPumpClockwise,
+                    IsRunning // 这里的 IsRunning 就是改变后的值
+                );
+            }
+        }
     }
 }

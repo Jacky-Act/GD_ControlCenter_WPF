@@ -1,11 +1,25 @@
 using System;
 using System.Runtime.InteropServices;
 
+/*
+ * 文件名: AvantesSdk.cs
+ * 描述: 本文件包含对 Avantes 光谱仪底层驱动库（avaspec.dll / avaspecx64.dll）的 C# 封装。
+ * 通过 P/Invoke 技术实现对 C++ 原生 API 的调用，涵盖了设备初始化、参数配置、光谱数据采集等核心功能。
+ * 旨在为 WPF 上位机软件提供稳定、高效的光谱仪控制接口。
+ * 项目: GD_ControlCenter_WPF
+ * 最后修改时间: 2026.03.04
+ * 最后修改人: Jacky-Act
+ */
 
 namespace C_Sharp_Application
 {
-    // --- 新增：定义回调委托 ---
-    // 必须使用 UnmanagedFunctionPointer 并指定 Cdecl 调用约定，以匹配 C++ DLL
+    /// <summary>
+    /// 测量完成后的回调委托。
+    /// 该委托用于接收底层驱动传回的测量结束信号，包含触发该事件的设备句柄及执行状态。
+    /// [UnmanagedFunctionPointer(CallingConvention.Cdecl)] 特性确保托管代码与 C++ DLL 的调用约定匹配，防止堆栈不平衡风险。
+    /// </summary>
+    /// <param name="a_hDevice">触发回调的设备句柄引用。</param>
+    /// <param name="a_Status">测量任务的状态码引用（0 为成功）。</param>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void MeasurementCompletedCallback(ref int a_hDevice, ref int a_Status);
 

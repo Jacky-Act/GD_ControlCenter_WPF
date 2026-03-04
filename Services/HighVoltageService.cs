@@ -21,7 +21,6 @@ namespace GD_ControlCenter_WPF.Services
 
         #region 业务属性 (纯数据)
 
-        // 移除 [ObservableProperty]，改为普通属性
         public int Voltage { get; private set; }      // 实时电压值 (V)
         public int Current { get; private set; }      // 实时电流值 (mA)
         public bool IsOnline { get; private set; }    // 通讯状态

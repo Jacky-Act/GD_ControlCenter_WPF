@@ -102,5 +102,31 @@ namespace GD_ControlCenter_WPF.ViewModels
             window.Owner = Application.Current.MainWindow; // 居中于主窗口
             window.ShowDialog(); // 模态显示
         }
+
+        protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
+
+            if (e.PropertyName == nameof(IsRunning))
+            {
+                if (IsRunning)
+                {
+                    // 1. 开启电源输出
+                    var config = _configService.Load();
+                    _hvService.SetHighVoltage(config.LastHvVoltage, config.LastHvCurrent);
+
+                    // 2. 开启电压电流的监控（1秒查询1次）
+                    _hvService.Start();
+                }
+                else
+                {
+                    // 1. 关闭电源输出（发送 0, 0 指令）
+                    _hvService.SetHighVoltage(0, 0);
+
+                    // 2. 注意：这里【不调用】 _hvService.Stop()
+                    // 这样可以保持实时监控，界面会显示电压电流降回 0 的过程
+                }
+            }
+        }
     }
 }

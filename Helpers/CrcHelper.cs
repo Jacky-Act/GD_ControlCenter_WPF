@@ -4,6 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+/*
+ * 文件名: CrcHelper.cs
+ * 描述: 本文件提供基于查表法实现的 CRC16 校验功能。
+ * 主要用于与下位机控制板进行串口通信时，对数据包进行循环冗余校验，确保指令传输的完整性与准确性。
+ * 项目: GD_ControlCenter_WPF
+ * 最后修改时间: 2026.03.04
+ * 最后修改人: Jacky-Act
+ */
+
 namespace GD_ControlCenter_WPF.Helpers
 {
     /// <summary>
@@ -64,18 +73,20 @@ namespace GD_ControlCenter_WPF.Helpers
         };
 
         /// <summary>
-        /// 计算 CRC16 校验值
+        /// 计算给定字节数组的 CRC16 校验值。
         /// </summary>
-        /// <param name="data">待校验字节数组</param>
-        /// <param name="length">校验长度</param>
-        /// <returns>返回 2 字节数组：[0]为高位，[1]为低位</returns>
+        /// <param name="data">待校验的原始字节数组。</param>
+        /// <param name="length">需要参与计算的数据长度。</param>
+        /// <returns>返回长度为 2 的字节数组：[0] 为校验码高位，[1] 为校验码低位。</returns>
         public static byte[] Compute(byte[] data, int length)
         {
-            byte crcHigh = 0xFF; // 必须是 0xFF
-            byte crcLow = 0xFF;  // 必须是 0xFF
+            // 初始化寄存器，标准 Modbus 等协议通常使用 0xFF
+            byte crcHigh = 0xFF;
+            byte crcLow = 0xFF;
 
             for (int i = 0; i < length; i++)
             {
+                // 通过当前字节与寄存器低位异或的结果作为索引查表
                 uint index = (uint)(crcLow ^ data[i]);
                 crcLow = (byte)(crcHigh ^ _crcHighTable[index]);
                 crcHigh = _crcLowTable[index];
