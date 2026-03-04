@@ -1,5 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 
+/*
+ * 文件名: PlatformModel.cs
+ * 描述: 本文件定义了三维运动平台的物理模型、运行状态以及软限位常量。
+ * 采用了 CommunityToolkit.Mvvm 框架实现属性变更通知，确保位置与状态数据能实时同步至 UI 界面。
+ * 同时也整合了硬件通信协议中定义的轴类型映射关系。
+ * 项目: GD_ControlCenter_WPF
+ */
+
 namespace GD_ControlCenter_WPF.Models.Platform3D
 {
     /// <summary>
@@ -14,8 +22,9 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
     }
 
     /// <summary>
-    /// 三维平台位置模型
-    /// 使用 ObservableProperty 实现属性变更通知，适配 WPF 数据绑定
+    /// 三维平台实时位置模型。
+    /// 继承自 ObservableObject，利用 [ObservableProperty] 自动生成适配 WPF 绑定的属性。
+    /// 用于记录和展示 X、Y、Z 三轴当前的脉冲步数。
     /// </summary>
     public partial class PlatformPosition : ObservableObject
     {
@@ -53,8 +62,8 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
     }
 
     /// <summary>
-    /// 三维平台运行状态模型
-    /// 整合了原本散落在 Controller 和 Repository 中的状态标志位
+    /// 三维平台运行状态模型。
+    /// 集中管理平台的运动状态、复位状态以及各轴的物理边界触发标志。
     /// </summary>
     public partial class PlatformStatus : ObservableObject
     {

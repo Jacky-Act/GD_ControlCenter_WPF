@@ -9,8 +9,6 @@ using System.Threading.Tasks;
  * 描述: 本文件提供基于查表法实现的 CRC16 校验功能。
  * 主要用于与下位机控制板进行串口通信时，对数据包进行循环冗余校验，确保指令传输的完整性与准确性。
  * 项目: GD_ControlCenter_WPF
- * 最后修改时间: 2026.03.04
- * 最后修改人: Jacky-Act
  */
 
 namespace GD_ControlCenter_WPF.Helpers

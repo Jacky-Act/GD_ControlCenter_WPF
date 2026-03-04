@@ -1,35 +1,49 @@
 ﻿using GD_ControlCenter_WPF.Helpers;
 using GD_ControlCenter_WPF.Models.Protocols;
 
+/*
+ * 文件名: ControlCommandFactory.cs
+ * 描述: 控制指令工厂类。
+ * 负责将应用层的业务逻辑参数（如转速、电压、行程等）翻译成符合硬件通讯协议的 13 字节标准指令帧。
+ * 内部集成了统一的封包逻辑（PackFrame），包含帧头校验、数据段填充及 CRC 校验码生成。
+ * 项目: GD_ControlCenter_WPF
+ */
+
 namespace GD_ControlCenter_WPF.Services.Commands
 {
     /// <summary>
-    /// 控制指令工厂：负责将业务参数转化为符合硬件协议的 13 字节指令
+    /// 控制指令工厂：负责将业务参数转化为符合硬件协议的 13 字节指令。
     /// </summary>
     public static class ControlCommandFactory
     {
         #region 核心包装逻辑
 
         /// <summary>
-        /// 通用帧包装方法：自动处理帧头、长度、保留位、CRC、帧尾
+        /// 通用帧包装方法。
+        /// 自动处理协议所需的帧头、设备地址、功能码、数据段、CRC 校验及帧尾。
         /// </summary>
+        /// <param name="addr">目标设备地址。</param>
+        /// <param name="type">通信链路类型。</param>
+        /// <param name="func">具体业务功能码。</param>
+        /// <param name="dataSegment">4 字节的业务数据段。</param>
+        /// <returns>构建完成的 13 字节完整指令包。</returns>
         private static byte[] PackFrame(DeviceAddr addr, CommandType type, FunctionCode func, byte[] dataSegment)
         {
             byte[] frame = new byte[ControlProtocol.CommandTotalLength];
 
-            // 填充固定协议头
+            // 填充协议基础头信息 (索引 0-5)
             frame[0] = ControlProtocol.FrameHeader; // 0x68
             frame[1] = (byte)addr;
             frame[2] = (byte)type;
             frame[3] = (byte)func;
             frame[4] = ControlProtocol.DataLength;  // 0x0D
-            frame[5] = 0x00;                        // 保留位
+            frame[5] = 0x00;                        // 协议保留位
 
-            // 填充 4 字节数据段 (索引 6-9)
+            // 填充 4 字节业务数据段 (索引 6-9)
             if (dataSegment != null && dataSegment.Length == 4)
                 Array.Copy(dataSegment, 0, frame, 6, 4);
 
-            // 计算并填充 CRC (计算前 10 字节)
+            // 计算并填充 CRC 校验 (计算前 10 字节，生成高低位)
             byte[] crc = CrcHelper.Compute(frame, 10);
             frame[10] = crc[0]; // CRC 高位
             frame[11] = crc[1]; // CRC 低位
@@ -65,8 +79,8 @@ namespace GD_ControlCenter_WPF.Services.Commands
         /// 生成蠕动泵控制命令
         /// </summary>
         /// <param name="speed">转速 (0-100)</param>
-        /// <param name="isClockwise">是否顺时针 顺时针该字节是1，逆时针是0</param> 
-        /// <param name="isStart">是否启动</param>
+        /// <param name="isClockwise">旋转方向（True: 顺时针, False: 逆时针）</param> 
+        /// <param name="isStart">启停控制</param>
         /// <returns>符合控制协议的 13 字节指令包</returns>
         public static byte[] CreatePeristalticPump(short speed, bool isClockwise, bool isStart)
         {
@@ -86,19 +100,7 @@ namespace GD_ControlCenter_WPF.Services.Commands
         /// <summary>
         /// 生成转向阀控制命令
         /// </summary>
-        /// <param name="channel">通道号 (1 或 2)</param>
-        /// <returns>符合控制协议的 13 字节指令包</returns>
-        public static byte[] CreateSteeringValve(int channel)
-        {
-            byte[] data = new byte[4] { (byte)channel, 0, 0, 0 };
-
-            return PackFrame(DeviceAddr.Controller, CommandType.PC_To_Controller, FunctionCode.SteeringValve, data);
-        }
-
-        /// <summary>
-        /// 生成转向阀控制命令
-        /// </summary>
-        /// <param name="isChannel2">是否切换至状态 2 (true: 状态 2, false: 状态 1)</param>
+        /// <param name="channel">通道号（True: 通道 2, False: 通道 1）</param>
         /// <returns>符合控制协议的 13 字节指令包</returns>
         public static byte[] CreateSteeringValve(bool isChannel2)
         {
@@ -111,9 +113,8 @@ namespace GD_ControlCenter_WPF.Services.Commands
         /// <summary>
         /// 生成注射泵控制命令
         /// </summary>
-        /// <param name="isOutput">移动方向（true=输出，false=输入）</param>
-        /// <param name="distance">移动距离（0-3000）</param>
-        /// <returns>符合控制协议的 13 字节指令包</returns>
+        /// <param name="isOutput">运行方向（True: 输出, False: 输入）</param>
+        /// <param name="distance">移动步数（0-3000）</param>
         public static byte[] CreateSyringePump(bool isOutput, short distance)
         {
             // 安全校验：强制限制在 0-3000 之间
@@ -132,8 +133,8 @@ namespace GD_ControlCenter_WPF.Services.Commands
         /// 生成三维平台移动命令
         /// </summary>
         /// <param name="dimension">轴维度（1=X, 2=Y, 3=Z）</param>
-        /// <param name="isPositive">是否正向移动 (true: 正向[1], false: 反向[0])</param>
-        /// <param name="step">步长（1~60000）</param>
+        /// <param name="isPositive">方向 (true: 正向[1], false: 反向[0])</param>
+        /// <param name="step">脉冲步长</param>
         /// <returns>符合控制协议的 13 字节指令包</returns>
         public static byte[] CreatePlatformMove(int dimension, bool isPositive, int step)
         {
@@ -190,7 +191,8 @@ namespace GD_ControlCenter_WPF.Services.Commands
         }
 
         /// <summary>
-        /// 生成电池状态查询命令
+        /// 生成电池状态直接查询命令
+        /// 直接与电池通信，不经过控制板
         /// 协议固定序列：DD A5 03 00 FF FD 77
         /// </summary>
         /// <returns>7 字节查询指令</returns>

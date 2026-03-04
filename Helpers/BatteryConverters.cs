@@ -9,8 +9,6 @@ using System.Windows.Media;
  * 主要用于处理电池状态、电量显示、以及设备连接状态在 WPF XAML 中的视觉呈现逻辑。
  * 通过实现 IValueConverter 和 IMultiValueConverter，将 ViewModel 中的业务数据转换为 XAML 可识别的颜色、宽度或可见性。
  * 项目: GD_ControlCenter_WPF
- * 最后修改时间: 2026.03.04
- * 最后修改人: Jacky-Act
  */
 
 namespace GD_ControlCenter_WPF.Helpers

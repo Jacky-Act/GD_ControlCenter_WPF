@@ -1,7 +1,16 @@
-﻿namespace GD_ControlCenter_WPF.Models.Platform3D
+﻿
+/*
+ * 文件名: SpatialExperimentData.cs
+ * 描述: 定义空间分布实验的单个数据采集点实体。
+ * 用于记录采样时的物理坐标、时间戳以及所属的实验轮次，是后续生成实验报表和光谱分布图的基础。
+ * 项目: GD_ControlCenter_WPF
+ */
+
+namespace GD_ControlCenter_WPF.Models.Platform3D
 {
     /// <summary>
-    /// 空间分布实验数据实体：记录单个采样点的坐标与时间信息
+    /// 空间分布实验数据实体。
+    /// 记录了在一个特定的空间坐标点位下，采集所产生的完整业务信息。
     /// </summary>
     public class SpatialExperimentData
     {
