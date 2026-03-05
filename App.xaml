@@ -6,7 +6,7 @@
              xmlns:vm="clr-namespace:GD_ControlCenter_WPF.ViewModels"            
              xmlns:pages="clr-namespace:GD_ControlCenter_WPF.Views.Pages"
              xmlns:helpers="clr-namespace:GD_ControlCenter_WPF.Helpers"
-             StartupUri="MainWindow.xaml">
+             StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

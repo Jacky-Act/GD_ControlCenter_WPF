@@ -1,7 +1,7 @@
 ﻿using GD_ControlCenter_WPF.ViewModels;
 using System.Windows;
 
-namespace GD_ControlCenter_WPF
+namespace GD_ControlCenter_WPF.Views
 {
     public partial class MainWindow : Window
     {

@@ -21,60 +21,51 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
         /// <summary>
         /// 设备唯一的序列号（SerialNumber）。
         /// </summary>
-        [ObservableProperty]
-        private string _serialNumber = string.Empty;
+        public string SerialNumber = string.Empty;
 
         /// <summary>
         /// 设备友好名称（UserFriendlyName）。
         /// </summary>
-        [ObservableProperty]
-        private string _deviceName = string.Empty;
+        public string DeviceName = string.Empty;
 
         /// <summary>
         /// SDK 操作句柄（DeviceHandle）。
         /// 初始化成功后由 AVS_Activate 返回。
         /// </summary>
-        [ObservableProperty]
-        private int _deviceHandle = -1;
+        public int DeviceHandle = -1;
 
         /// <summary>
         /// 设备当前的连接状态。
         /// </summary>
-        [ObservableProperty]
-        private bool _isConnected = false;
+        public bool IsConnected = false;
 
         // --- 测量参数配置 ---
 
         /// <summary>
         /// 积分时间（Integration Time），单位为毫秒 (ms)。
         /// </summary>
-        [ObservableProperty]
-        private float _integrationTimeMs = 100f;
+        public float IntegrationTimeMs = 100f;
 
         /// <summary>
         /// 硬件采样的平均次数（NrAverages）。
         /// </summary>
-        [ObservableProperty]
-        private uint _averagingCount = 5;
+        public uint AveragingCount = 5;
 
         /// <summary>
         /// 起始像素索引。
         /// </summary>
-        [ObservableProperty]
-        private ushort _startPixel = 0;
+        public ushort StartPixel = 0;
 
         /// <summary>
         /// 终止像素索引。
         /// </summary>
-        [ObservableProperty]
-        private ushort _stopPixel = 4095;
+        public ushort StopPixel = 4095;
 
         /// <summary>
         /// 是否启用饱和检测（Saturation Detection）。
         /// 开启后可监测像素是否过曝。
         /// </summary>
-        [ObservableProperty]
-        private bool _isSaturationDetectionEnabled = true;
+        public bool IsSaturationDetectionEnabled = true;
 
         // --- 硬件限制 ---
 
@@ -82,8 +73,7 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
         /// 硬件支持的最小积分时间 (ms)。
         /// 用于 UI 输入值的合法性校验，防止下发 SDK 不支持的参数。
         /// </summary>
-        [ObservableProperty]
-        private float _minIntegrationTime = 5.0f; 
+        public float MinIntegrationTime = 5.0f; 
     }
 
     /// <summary>

@@ -164,14 +164,14 @@
                         <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="积分时间:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
                             <Button Style="{StaticResource MaterialDesignFlatButton}" 
-                                    Content="{Binding SpecConfig.IntegrationTimeMs, StringFormat={}{0} ms}"
+                                    Content="{Binding SpecVM.IntegrationTimeMs, StringFormat={}{0} ms}"
                                     Padding="4,0" Height="24"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="平均次数:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
                             <Button Style="{StaticResource MaterialDesignFlatButton}" 
-                                    Content="{Binding SpecConfig.AveragingCount}"
+                                    Content="{Binding SpecVM.AveragingCount}"
                                     Padding="4,0" Height="24"/>
                         </StackPanel>
 
@@ -188,7 +188,8 @@
 
             <Border Grid.Column="1" Margin="2.5,0,5,5">
                 <UniformGrid Columns="1" Rows="5">
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="启动光谱" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
+                            Command="{Binding ToggleSpectrometerCommand}" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
