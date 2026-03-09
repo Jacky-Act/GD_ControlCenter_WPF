@@ -36,7 +36,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             _configService = configService;
 
             DisplayName = "高压电源";
-            ThemeColor = Brushes.DodgerBlue;
+            ThemeColor = Brushes.MediumPurple;
 
             // 订阅 Service 的属性变化事件
             _hvService.PropertyChanged += OnServicePropertyChanged;

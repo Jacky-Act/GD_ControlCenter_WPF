@@ -25,7 +25,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             _configService = configService;
 
             DisplayName = "注射泵";
-            ThemeColor = Brushes.Teal;
+            ThemeColor = Brushes.MediumPurple;
 
             // 初始化同步一次状态
             UpdateUIFromConfig();
