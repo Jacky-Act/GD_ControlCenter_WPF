@@ -12,6 +12,7 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         private readonly HighVoltageService _hvService;
         private readonly JsonConfigService _configService;
         private readonly Action _closeAction;
+        private readonly bool _isRunning; // 保存当前运行状态
 
         // 绑定到滑动条和文本框的电压值 (0-1500V)
         [ObservableProperty]
@@ -21,14 +22,12 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         [ObservableProperty]
         private int _targetCurrent;
 
-        public HvSettingViewModel(
-            HighVoltageService hvService,
-            JsonConfigService configService,
-            AppConfig currentConfig,
-            Action closeAction)
+        public HvSettingViewModel(HighVoltageService hvService, JsonConfigService configService, AppConfig currentConfig,
+            bool isRunning, Action closeAction)
         {
             _hvService = hvService;
             _configService = configService;
+            _isRunning = isRunning;
             _closeAction = closeAction;
 
             // 初始化时，从读取到的本地配置中加载上次保存的数值
@@ -61,7 +60,13 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             config.LastHvCurrent = TargetCurrent;
             _configService.Save(config);
 
-            // 3. 执行关闭回调
+            // 3. 如果正在运行，直接向硬件发送新参数
+            if (_isRunning)
+            {
+                _hvService.SetHighVoltage(TargetVoltage, TargetCurrent);
+            }
+
+            // 4. 执行关闭回调
             _closeAction?.Invoke();
         }
     }

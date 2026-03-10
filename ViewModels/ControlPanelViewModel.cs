@@ -33,9 +33,6 @@ namespace GD_ControlCenter_WPF.ViewModels
         private readonly HighVoltageService _highVoltageService;
         private readonly JsonConfigService _jsonConfigService;
 
-
-
-
         // 3. 定义转向阀状态属性
         [ObservableProperty]
         private bool _isSteeringValveActive;

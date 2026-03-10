@@ -21,14 +21,11 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty]
         private string? _displayValue;
 
-        // 主题色（用于区分不同设备的视觉风格）
-        [ObservableProperty]
-        private Brush? _themeColor;
-
         // 左侧区域点击命令（用于弹出详情配置窗口）
         public IRelayCommand OpenDetailCommand { get; }
 
-        public IRelayCommand ToggleCommand { get; } // 新增切换命令
+        // 右侧启停命令
+        public IRelayCommand ToggleCommand { get; } 
 
         protected DeviceBaseViewModel()
         {

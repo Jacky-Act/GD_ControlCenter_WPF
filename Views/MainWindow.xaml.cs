@@ -21,8 +21,8 @@ namespace GD_ControlCenter_WPF.Views
             double screenHeight = SystemParameters.WorkArea.Height;
 
             // 2. 设定窗口占用屏幕的比例
-            double widthRatio = 0.65;
-            double heightRatio = 0.60;
+            double widthRatio = 0.80;
+            double heightRatio = 0.72;
 
             // 3. 计算目标宽高值
             double targetWidth = screenWidth * widthRatio;

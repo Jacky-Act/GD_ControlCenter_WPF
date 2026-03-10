@@ -60,21 +60,10 @@
                    FontSize="14" 
                    Opacity="0.8"/>
 
-                <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
-                      IsChecked="{Binding IsClockwise}"
-                      ToolTip="切换泵送方向">
-
-                    <materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
-                        <SolidColorBrush Color="#673ab7"/>
-                    </materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
-
-                    <materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
-                        <SolidColorBrush Color="#673ab7"/>
-                    </materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
-
-                    <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5">
-                    </materialDesign:PackIcon>
-
+                <ToggleButton Style="{StaticResource PurpleSwitchStyle}"
+                              IsChecked="{Binding IsClockwise}"
+                              ToolTip="切换泵送方向">
+                    <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />
                     <materialDesign:ToggleButtonAssist.OnContent>
                         <materialDesign:PackIcon Kind="ArrowRight" />
                     </materialDesign:ToggleButtonAssist.OnContent>

@@ -56,7 +56,7 @@
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="输入" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="14" Opacity="0.8"/>
 
-                <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                <ToggleButton Style="{StaticResource PurpleSwitchStyle}"
                               IsChecked="{Binding IsOutput}"
                               ToolTip="切换注射/抽取方向">
                     <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />

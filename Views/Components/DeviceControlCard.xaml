@@ -39,7 +39,7 @@
                             <Setter Property="VerticalContentAlignment" Value="Center"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                    <Setter Property="Background" Value="{Binding ThemeColor}"/>
+                                    <Setter Property="Background" Value="{DynamicResource PurpleThemeBrush}"/>
                                     <Setter Property="Foreground" Value="White"/>
                                 </DataTrigger>
                             </Style.Triggers>

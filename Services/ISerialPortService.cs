@@ -5,8 +5,14 @@
     /// </summary>
     public interface ISerialPortService
     {
+        // 使用标准事件向外广播状态变更
+        event Action<bool>? ConnectionStatusChanged;
+
         // 属性：获取当前串口是否打开
         bool IsOpen { get; }
+
+        // 当前串口号
+        string? CurrentPortName { get; }
 
         // 获取可用端口名列表
         string[] GetAvailablePorts();
@@ -19,5 +25,7 @@
 
         // 发送十六进制数据
         void Send(byte[] data);
+
+        void AutoConnect();
     }
 }

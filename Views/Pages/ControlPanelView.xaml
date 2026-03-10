@@ -78,7 +78,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="#673ab7" Opacity="0.5"
+                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="{DynamicResource PurpleThemeBrush}" Opacity="0.5"
                                    HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
                         <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -86,7 +86,7 @@
                                        FontSize="14" FontWeight="Bold">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#673ab7"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource PurpleThemeBrush}"/>
                                         <Setter Property="Opacity" Value="0.5"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsSteeringValveActive}" Value="False">
@@ -98,16 +98,9 @@
                                 </TextBlock.Style>
                             </TextBlock>
 
-                            <ToggleButton Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                            <ToggleButton Style="{StaticResource PurpleSwitchStyle}"
                                           IsChecked="{Binding IsSteeringValveActive, Mode=TwoWay}"
                                           ToolTip="切换转向阀通道">
-                                <materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
-                                    <SolidColorBrush Color="#673ab7" />
-                                </materialDesign:ToggleButtonAssist.SwitchTrackOnBackground>
-                                <materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
-                                    <SolidColorBrush Color="#673ab7" />
-                                </materialDesign:ToggleButtonAssist.SwitchTrackOffBackground>
-
                                 <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />
                                 <materialDesign:ToggleButtonAssist.OnContent>
                                     <materialDesign:PackIcon Kind="ArrowRight" />
@@ -118,7 +111,7 @@
                                        FontSize="14" FontWeight="Bold">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#673ab7"/>
+                                        <Setter Property="Foreground" Value="{StaticResource PurpleThemeBrush}"/>
                                         <Setter Property="Opacity" Value="0.5"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsSteeringValveActive}" Value="True">
@@ -141,9 +134,9 @@
                             Height="Auto" Padding="0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" 
-                                       Foreground="{Binding Devices[3].ThemeColor}"/>
+                                       Foreground="Black"/>
                             <TextBlock Text="三维平台" FontSize="20" FontWeight="Bold" 
-                                       Foreground="{Binding Devices[3].ThemeColor}"/>
+                                       Foreground="Black"/>
                         </StackPanel>
                     </Button>
                 </materialDesign:Card>

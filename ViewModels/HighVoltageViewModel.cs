@@ -15,16 +15,16 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         // --- 1. 定义 UI 专用属性 ---
         [ObservableProperty]
-        private string _setVoltage = "0 V";
+        private string _setVoltage = "0";
 
         [ObservableProperty]
-        private string _setCurrent = "0 mA";
+        private string _setCurrent = "0";
 
         [ObservableProperty]
-        private string _monitorVoltage = "0 V";
+        private string _monitorVoltage = "0";
 
         [ObservableProperty]
-        private string _monitorCurrent = "0 mA";
+        private string _monitorCurrent = "0";
 
         [ObservableProperty]
         private string _statusText = "离线";
@@ -36,7 +36,6 @@ namespace GD_ControlCenter_WPF.ViewModels
             _configService = configService;
 
             DisplayName = "高压电源";
-            ThemeColor = Brushes.MediumPurple;
 
             // 订阅 Service 的属性变化事件
             _hvService.PropertyChanged += OnServicePropertyChanged;
@@ -59,14 +58,14 @@ namespace GD_ControlCenter_WPF.ViewModels
         private void UpdateUIProperties()
         {
             // 1. 同步监控值（来自 Service）
-            MonitorVoltage = $"{_hvService.Voltage} V";
-            MonitorCurrent = $"{_hvService.Current} mA";
+            MonitorVoltage = $"{_hvService.Voltage}";
+            MonitorCurrent = $"{_hvService.Current}";
             StatusText = _hvService.IsOnline ? "在线" : "离线";
 
             // 2. 同步设定值（来自配置文件）
             var config = _configService.Load();
-            SetVoltage = $"{config.LastHvVoltage} V";
-            SetCurrent = $"{config.LastHvCurrent} mA";
+            SetVoltage = $"{config.LastHvVoltage}";
+            SetCurrent = $"{config.LastHvCurrent}";
 
             // 更新基类的 DisplayValue (如果通用卡片还在使用这个属性的话)
             DisplayValue = MonitorVoltage;
@@ -85,11 +84,7 @@ namespace GD_ControlCenter_WPF.ViewModels
 
             // 3. 创建弹窗的 ViewModel 并注入依赖
             // 传入 Action 用于在点击“应用”时关闭窗口
-            var vm = new HvSettingViewModel(
-                       _hvService,
-                       _configService,
-                       currentConfig,
-                       () =>
+            var vm = new HvSettingViewModel(_hvService,_configService,currentConfig,this.IsRunning,() =>
                        {
                            window.Close();
                            // 重点：弹窗关闭后立即手动刷新一次 UI，确保卡片显示最新保存的值

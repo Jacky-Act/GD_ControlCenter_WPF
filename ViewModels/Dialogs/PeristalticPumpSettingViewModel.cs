@@ -9,8 +9,10 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 {
     public partial class PeristalticPumpSettingViewModel : ObservableObject
     {
+        private readonly GeneralDeviceService _generalService;
         private readonly JsonConfigService _configService;
         private readonly Action _closeAction;
+        private readonly bool _isRunning; // 当前运行状态
 
         [ObservableProperty]
         private int _targetSpeed; // int 类型天然限制了只能输入整数
@@ -21,9 +23,12 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         [ObservableProperty]
         private string _directionHint = "前向";
 
-        public PeristalticPumpSettingViewModel(JsonConfigService configService, AppConfig currentConfig, Action closeAction)
+        public PeristalticPumpSettingViewModel(GeneralDeviceService generalService, JsonConfigService configService, AppConfig currentConfig,
+            bool isRunning, Action closeAction)
         {
+            _generalService = generalService;
             _configService = configService;
+            _isRunning = isRunning;
             _closeAction = closeAction;
 
             TargetSpeed = currentConfig.LastPumpSpeed;
@@ -51,6 +56,12 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             config.LastPumpSpeed = TargetSpeed;
             config.IsPumpClockwise = IsClockwise;
             _configService.Save(config);
+
+            // 如果正在运行，直接下发硬件指令，保持启动状态 (true)
+            if (_isRunning)
+            {
+                _generalService.ControlPeristalticPump((short)TargetSpeed, IsClockwise, true);
+            }
 
             _closeAction?.Invoke();
         }

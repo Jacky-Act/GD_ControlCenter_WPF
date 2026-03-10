@@ -8,13 +8,32 @@ namespace GD_ControlCenter_WPF.Services
     /// <summary>
     /// 标准串口服务：负责硬件交互、协议解析预处理及消息分发
     /// </summary>
-    public partial class SerialPortService : ObservableObject, ISerialPortService, IDisposable
+    public partial class SerialPortService : ISerialPortService, IDisposable
     {
         private SerialPort? _serialPort;
+        private readonly JsonConfigService _configService;
 
-        // 使用 Toolkit 自动生成属性：当 IsOpen 改变时，所有订阅者都会收到通知
-        [ObservableProperty]
-        private bool _isOpen;
+        public event Action<bool>? ConnectionStatusChanged;
+
+        public bool IsOpen { get; private set; }
+        public string? CurrentPortName { get; private set; }
+
+        public SerialPortService(JsonConfigService configService)
+        {
+            _configService = configService;
+        }
+
+        public void AutoConnect()
+        {
+            var config = _configService.Load();
+            var lastPort = config.LastSerialPort;
+            var ports = GetAvailablePorts();
+
+            if (!string.IsNullOrEmpty(lastPort) && ports.Contains(lastPort) && !IsOpen)
+            {
+                Open(lastPort, 9600);
+            }
+        }
 
         /// <summary>
         /// 获取当前系统可用串口列表
@@ -28,7 +47,6 @@ namespace GD_ControlCenter_WPF.Services
         {
             try
             {
-                // 如果当前已开启，先关闭
                 if (IsOpen) Close();
 
                 _serialPort = new SerialPort
@@ -42,16 +60,20 @@ namespace GD_ControlCenter_WPF.Services
                     WriteTimeout = 500
                 };
 
-                // 订阅底层原始数据到达事件
                 _serialPort.DataReceived += OnSerialDataReceived;
-
                 _serialPort.Open();
-                IsOpen = _serialPort.IsOpen; // 自动触发 PropertyChanged
+
+                // 核心：更新内部状态并对外触发事件
+                UpdateConnectionStatus(true, portName);
+
+                var config = _configService.Load();
+                config.LastSerialPort = portName;
+                _configService.Save(config);
+
                 return true;
             }
             catch (Exception)
             {
-                // 可以在这里记录日志或通过 Messenger 发送错误消息
                 return false;
             }
         }
@@ -68,7 +90,22 @@ namespace GD_ControlCenter_WPF.Services
                 _serialPort.Dispose();
                 _serialPort = null;
             }
-            IsOpen = false;
+
+            // 核心：更新内部状态并对外触发事件
+            UpdateConnectionStatus(false, null);
+        }
+
+        /// <summary>
+        /// 统一处理状态变更和事件触发
+        /// </summary>
+        private void UpdateConnectionStatus(bool isOpen, string? portName)
+        {
+            if (IsOpen != isOpen || CurrentPortName != portName)
+            {
+                IsOpen = isOpen;
+                CurrentPortName = portName;
+                ConnectionStatusChanged?.Invoke(IsOpen);
+            }
         }
 
         /// <summary>
@@ -76,10 +113,7 @@ namespace GD_ControlCenter_WPF.Services
         /// </summary>
         public void Send(byte[] data)
         {
-            if (IsOpen)
-            {
-                _serialPort?.Write(data, 0, data.Length);
-            }
+            if (IsOpen) _serialPort?.Write(data, 0, data.Length);
         }
 
         /// <summary>
@@ -88,22 +122,14 @@ namespace GD_ControlCenter_WPF.Services
         private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             if (_serialPort == null || !_serialPort.IsOpen) return;
-
             try
             {
                 int bytesToRead = _serialPort.BytesToRead;
                 byte[] buffer = new byte[bytesToRead];
                 _serialPort.Read(buffer, 0, bytesToRead);
-
-                // --- 核心解耦点 ---
-                // 使用 Toolkit 的强类型信使发送 Hex 数据包
-                // 任何订阅了 HexDataMessage 的组件都能收到，无需引用本类实例
                 WeakReferenceMessenger.Default.Send(new HexDataMessage(buffer));
             }
-            catch (Exception)
-            {
-                // 异常处理逻辑
-            }
+            catch (Exception) { }
         }
 
         /// <summary>

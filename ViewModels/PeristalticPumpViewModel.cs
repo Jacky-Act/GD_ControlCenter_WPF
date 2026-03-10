@@ -4,7 +4,6 @@ using GD_ControlCenter_WPF.ViewModels.Dialogs;
 using GD_ControlCenter_WPF.Views.Dialogs;
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Media;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -25,7 +24,6 @@ namespace GD_ControlCenter_WPF.ViewModels
             _configService = configService;
 
             DisplayName = "蠕动泵";
-            ThemeColor = Brushes.MediumPurple; // 设置一个识别度高的颜色
 
             // 初始化显示
             UpdateUIFromConfig();
@@ -49,10 +47,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             var currentConfig = _configService.Load();
             var window = new PeristalticPumpSettingWindow();
 
-            var vm = new PeristalticPumpSettingViewModel(
-                _configService,
-                currentConfig,
-                () =>
+            var vm = new PeristalticPumpSettingViewModel(_generalService, _configService, currentConfig, this.IsRunning, () =>
                 {
                     window.Close();
                     UpdateUIFromConfig(); // 关闭窗口后刷新卡片上的预设值显示

@@ -49,7 +49,11 @@ namespace GD_ControlCenter_WPF.Views.Components
 
         private void SettingsButton_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            // 不符合MVVM
+            // 获取 DataContext 并切换当前页面为 SettingsVM
+            if (this.DataContext is MainViewModel vm)
+            {
+                vm.CurrentPage = vm.SettingsVM;
+            }
         }
     }
 }

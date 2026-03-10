@@ -62,6 +62,13 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public int LastSampleInterval { get; set; } = 1;
 
+        // --- 串口通信设置参数 ---
+
+        /// <summary>
+        /// 上次成功连接的串口号。
+        /// </summary>
+        public string LastSerialPort { get; set; } = string.Empty;
+
         // 可以在此继续添加其他设备的参数，例如：
         // public int LastPumpRpm { get; set; } = 100;
     }

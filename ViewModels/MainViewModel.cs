@@ -1,11 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using GD_ControlCenter_WPF.Models;
 using GD_ControlCenter_WPF.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -23,6 +18,7 @@ namespace GD_ControlCenter_WPF.ViewModels
         public FittingCurveViewModel FittingCurveVM { get; } = new();
         public SampleMeasurementViewModel SampleMeasurementVM { get; } = new();
         public SpatialDistributionViewModel SpatialDistributionVM { get; } = new();
+        public SettingsViewModel SettingsVM { get; }
 
         private readonly JsonConfigService _configService = new();
         private readonly ProtocolService _protocolService;
@@ -31,18 +27,13 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         public MainViewModel()
         {
+            // 1. 加载历史配置（前置，以供服务层使用）
+            var config = _configService.Load();
 
-            // 1. 实例化基础服务（实际项目中建议使用依赖注入容器）
-            var serialService = new SerialPortService();
+            // 2. 实例化基础服务（将 _configService 注入到串口服务中）
+            var serialService = new SerialPortService(_configService);
             var generalService = new GeneralDeviceService(serialService);
             _hvService = new HighVoltageService(serialService);
-
-            // 2. 设置测试用的串口号和波特率
-            // 假设你的硬件或虚拟串口连接在 COM2，波特率为 9600
-            serialService.Open("COM2", 9600);
-
-            // 2. 加载历史配置
-            var config = _configService.Load();
 
             // 3. 将历史值赋给服务层或准备下发硬件
             _hvService.SetHighVoltage(config.LastHvVoltage, config.LastHvCurrent);
@@ -51,8 +42,11 @@ namespace GD_ControlCenter_WPF.ViewModels
             _batteryService = new BatteryService(serialService);
             _batteryService.Start();
 
-            // 2. 将服务传给 ControlPanelVM
+            // 4. 将服务传给 ViewModel
             ControlPanelVM = new ControlPanelViewModel(generalService, _batteryService, _hvService, _configService);
+
+            // 5. 实例化 SettingsVM，此过程会自动触发串口的寻找与自动连接
+            SettingsVM = new SettingsViewModel(serialService);
 
             // 默认显示仪表台
             CurrentPage = ControlPanelVM;

@@ -27,16 +27,16 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="设置电压" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <TextBlock Text="设置电压(V)" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding SetVoltage}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding SetVoltage}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="设置电流" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <TextBlock Text="设置电流(mA)" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding SetCurrent}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding SetCurrent}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
 
@@ -44,16 +44,16 @@
                     Margin="8,4" VerticalAlignment="Stretch" SnapsToDevicePixels="True"/>
 
                 <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                    <TextBlock Text="监控电压" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <TextBlock Text="监控电压(V)" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding MonitorVoltage}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding MonitorVoltage}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
 
                 <StackPanel Grid.Column="4" VerticalAlignment="Center">
-                    <TextBlock Text="监控电流" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <TextBlock Text="监控电流(mA)" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding MonitorCurrent}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding MonitorCurrent}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
             </Grid>
@@ -81,14 +81,14 @@
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="设定转速" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding SettingSpeed}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding SettingSpeed}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="转动方向" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding DirectionText}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding DirectionText}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
             </Grid>
@@ -116,14 +116,14 @@
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="设定距离" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding SettingDistance}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding SettingDistance}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="运行方向" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
-                        <TextBlock Text="{Binding DirectionText}" FontWeight="Bold" Foreground="{Binding ThemeColor}"/>
+                        <TextBlock Text="{Binding DirectionText}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
                 </StackPanel>
             </Grid>
