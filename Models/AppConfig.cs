@@ -50,6 +50,18 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public bool IsSyringeOutput { get; set; } = true;
 
+        // --- 采样配置设置参数 ---
+
+        /// <summary>
+        /// 采样次数设定值。
+        /// </summary>
+        public int LastSampleCount { get; set; } = 1;
+
+        /// <summary>
+        /// 采样间隔设定值（单位：秒），范围 0-3600
+        /// </summary>
+        public int LastSampleInterval { get; set; } = 1;
+
         // 可以在此继续添加其他设备的参数，例如：
         // public int LastPumpRpm { get; set; } = 100;
     }

@@ -12,7 +12,7 @@ namespace GD_ControlCenter_WPF.Views
         }
 
         /// <summary>
-        /// 按照屏幕比例初始化窗口尺寸，并计算卡片区固定高度 [cite: 60, 63]
+        /// 按照屏幕比例初始化窗口尺寸，并计算卡片区固定高度
         /// </summary>
         private void ApplyScreenProportionalSize()
         {

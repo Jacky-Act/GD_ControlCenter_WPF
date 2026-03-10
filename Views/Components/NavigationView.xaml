@@ -5,14 +5,14 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="70">
+             d:DesignHeight="600" d:DesignWidth="70">
 
     <Grid Background="{DynamicResource MaterialDesignPaper}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        
+
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <TabControl x:Name="MainTabControl"
                         materialDesign:NavigationRailAssist.ShowSelectionBackground="True"
@@ -40,11 +40,29 @@
                     <Border />
                 </TabItem>
 
-                <TabItem x:Name="LogTab">
+                <TabItem x:Name="ElementConfigTab">
                     <TabItem.Header>
                         <StackPanel Width="60" Margin="0,10">
-                            <materialDesign:PackIcon Kind="ClipboardTextOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
-                            <TextBlock Text="日志" HorizontalAlignment="Center" FontSize="11"/>
+                            <materialDesign:PackIcon Kind="PeriodicTable" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="元素配置" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                </TabItem>
+
+                <TabItem x:Name="FittingCurveTab">
+                    <TabItem.Header>
+                        <StackPanel Width="60" Margin="0,10">
+                            <materialDesign:PackIcon Kind="ChartLine" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="拟合曲线" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                </TabItem>
+
+                <TabItem x:Name="SampleMeasurementTab">
+                    <TabItem.Header>
+                        <StackPanel Width="60" Margin="0,10">
+                            <materialDesign:PackIcon Kind="FlaskOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="连续测量" HorizontalAlignment="Center" FontSize="11"/>
                         </StackPanel>
                     </TabItem.Header>
                 </TabItem>

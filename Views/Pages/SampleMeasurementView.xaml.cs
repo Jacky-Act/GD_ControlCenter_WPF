@@ -16,11 +16,11 @@ using System.Windows.Shapes;
 namespace GD_ControlCenter_WPF.Views.Pages
 {
     /// <summary>
-    /// LogView.xaml 的交互逻辑
+    /// SampleMeasurementView.xaml 的交互逻辑
     /// </summary>
-    public partial class LogView : UserControl
+    public partial class SampleMeasurementView : UserControl
     {
-        public LogView()
+        public SampleMeasurementView()
         {
             InitializeComponent();
         }

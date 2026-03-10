@@ -142,6 +142,34 @@ namespace GD_ControlCenter_WPF.ViewModels
         private void Fire() => _generalDeviceService.Fire();
 
         /// <summary>
+        /// 打开采样配置弹窗
+        /// </summary>
+        [RelayCommand]
+        private void SamplingConfig()
+        {
+            // 1. 实例化窗口对象
+            var window = new GD_ControlCenter_WPF.Views.Dialogs.SamplingSettingWindow();
+
+            // 2. 获取当前配置
+            var config = _jsonConfigService.Load();
+
+            // 3. 实例化弹窗的 ViewModel，并传入关闭窗口的回调动作
+            var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.SamplingSettingViewModel(
+                _jsonConfigService,
+                config,
+                () => window.Close());
+
+            // 4. 绑定 DataContext
+            window.DataContext = vm;
+
+            // 5. 指定 Owner，使窗口居中于主程序显示（对应 XAML 中的 WindowStartupLocation="CenterOwner"）
+            window.Owner = System.Windows.Application.Current.MainWindow;
+
+            // 6. 以模态对话框形式打开
+            window.ShowDialog();
+        }
+
+        /// <summary>
         /// 外部（如 MainWindow）初始化高度时调用
         /// </summary>
         public void SetInitialHeight(double height)

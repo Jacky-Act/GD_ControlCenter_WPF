@@ -24,8 +24,16 @@
                 <pages:TimeSeriesView />
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type vm:LogViewModel}">
-                <pages:LogView />
+            <DataTemplate DataType="{x:Type vm:ElementConfigViewModel}">
+                <pages:ElementConfigView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:FittingCurveViewModel}">
+                <pages:FittingCurveView />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:SampleMeasurementViewModel}">
+                <pages:SampleMeasurementView />
             </DataTemplate>
 
             <DataTemplate DataType="{x:Type vm:SpatialDistributionViewModel}">

@@ -19,7 +19,9 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         public ControlPanelViewModel ControlPanelVM { get; }
         public TimeSeriesViewModel TimeSeriesVM { get; } = new();
-        public LogViewModel LogVM { get; } = new();
+        public ElementConfigViewModel ElementConfigVM { get; } = new();
+        public FittingCurveViewModel FittingCurveVM { get; } = new();
+        public SampleMeasurementViewModel SampleMeasurementVM { get; } = new();
         public SpatialDistributionViewModel SpatialDistributionVM { get; } = new();
 
         private readonly JsonConfigService _configService = new();

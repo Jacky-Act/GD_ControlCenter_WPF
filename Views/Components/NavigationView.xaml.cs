@@ -27,9 +27,15 @@ namespace GD_ControlCenter_WPF.Views.Components
                         vm.CurrentPage = vm.TimeSeriesVM;
                         break;
                     case 2:
-                        vm.CurrentPage = vm.LogVM;
+                        vm.CurrentPage = vm.ElementConfigVM;
                         break;
                     case 3:
+                        vm.CurrentPage = vm.FittingCurveVM;
+                        break;
+                    case 4:
+                        vm.CurrentPage = vm.SampleMeasurementVM;
+                        break;
+                    case 5:
                         vm.CurrentPage = vm.SpatialDistributionVM;
                         break;
                 }
