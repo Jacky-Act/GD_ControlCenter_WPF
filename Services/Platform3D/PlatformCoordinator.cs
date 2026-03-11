@@ -12,7 +12,7 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
     public class PlatformCoordinator : IDisposable
     {
         private readonly ISpectrometerService _spectrometerService;
-        private readonly SpectrometerLogic _spectralLogic;
+        // 【删除】移除了 private readonly SpectrometerLogic _spectralLogic; 
         private readonly CalibrationLogic _calibrationLogic;
 
         // 运行时状态
@@ -31,10 +31,10 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
         private long _saturationStartTime = -1;
         private const double SaturationThreshold = 65000.0; // 16位ADC阈值
 
-        public PlatformCoordinator(ISpectrometerService spectrometerService, SpectrometerLogic spectralLogic, CalibrationLogic calibrationLogic)
+        // 【修改】构造函数不再接收 SpectrometerLogic 参数
+        public PlatformCoordinator(ISpectrometerService spectrometerService, CalibrationLogic calibrationLogic)
         {
             _spectrometerService = spectrometerService;
-            _spectralLogic = spectralLogic;
             _calibrationLogic = calibrationLogic;
 
             // 注册消息：每当光谱仪有一帧新数据（不管是单次还是持续模式）
@@ -81,6 +81,7 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
                 _spectrometerService.StopMeasurement();
             }
         }
+
         /// <summary>
         /// 实时处理逻辑（方案 B：几何中心法）
         /// </summary>
@@ -89,10 +90,12 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
             if (!_isScanning) return;
 
             // 1. 每帧动态寻峰（应对漂移）
-            double actualPeakWl = _spectralLogic.GetActualPeakWavelength(data, _targetWl, _tolerance);
+            // 【修改】直接通过类名 SpectrometerLogic 调用静态方法
+            double actualPeakWl = SpectrometerLogic.GetActualPeakWavelength(data, _targetWl, _tolerance);
 
             // 2. 读取该波长处的强度
-            double currentIntensity = _spectralLogic.GetIntensityAtWavelength(data, actualPeakWl);
+            // 【修改】直接通过类名 SpectrometerLogic 调用静态方法
+            double currentIntensity = SpectrometerLogic.GetIntensityAtWavelength(data, actualPeakWl);
 
             // 3. 饱和逻辑判断
             bool isSaturated = currentIntensity >= SaturationThreshold;

@@ -69,6 +69,20 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public string LastSerialPort { get; set; } = string.Empty;
 
+        // 在 AppConfig 类中新增以下内容
+
+        // --- 光谱仪设置参数 ---
+
+        /// <summary>
+        /// 光谱仪积分时间（ms）。
+        /// </summary>
+        public float LastIntegrationTime { get; set; } = 0f;
+
+        /// <summary>
+        /// 光谱仪平均次数。
+        /// </summary>
+        public uint LastAveragingCount { get; set; } = 0;
+
         // 可以在此继续添加其他设备的参数，例如：
         // public int LastPumpRpm { get; set; } = 100;
     }

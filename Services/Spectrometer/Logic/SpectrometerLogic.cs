@@ -1,60 +1,61 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
-using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
-using GD_ControlCenter_WPF.Models.Spectrometer;
-using System.Collections.Concurrent;
+﻿using GD_ControlCenter_WPF.Models.Spectrometer;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
 {
     /// <summary>
-    /// 光谱处理逻辑类
-    /// 职责：负责峰值检测、采样时间计算、以及多设备光谱拼接算法。
+    /// 光谱处理逻辑工具类 (纯静态)
+    /// 职责：提供光谱数据的纯数学计算、多设备光谱拼接算法以及饱和度校验。
+    /// 本类不保存任何状态，不包含硬件依赖，不直接发送任何全局消息。
     /// </summary>
-    public class SpectrometerLogic
+    public static class SpectrometerLogic
     {
-        private readonly ISpectrometerService _spectrometerService;
+        // --- 公开核心算法方法 ---
 
         /// <summary>
-        /// 暂存多台设备最近的光谱数据，Key 为序列号。
-        /// 用于在多机协作场景中进行全谱拼接。
+        /// 多设备光谱拼接算法：对传入的多台设备的数据进行排序、合并，并生成全谱数据。
         /// </summary>
-        private readonly ConcurrentDictionary<string, SpectralData> _latestDataCache = new();
-
-        public SpectrometerLogic(ISpectrometerService spectrometerService)
+        /// <param name="dataCollection">包含多台光谱仪原始数据的集合。</param>
+        /// <returns>返回拼接完成的完整全谱数据实体。若传入数据为空或少于两台，则返回 null。</returns>
+        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection)
         {
-            _spectrometerService = spectrometerService ?? throw new ArgumentNullException(nameof(spectrometerService));
+            if (dataCollection == null || dataCollection.Count() < 2) return null;
 
-            // 订阅单台光谱仪发出的原始数据消息
-            WeakReferenceMessenger.Default.Register<SpectralDataMessage>(this, (r, m) =>
-            {
-                OnSpectralDataReceived(m.Value);
-            });
+            // 将所有缓存的数据合并到一个列表中，并按波长升序排列
+            var allPoints = dataCollection
+                .SelectMany(d => d.Wavelengths.Zip(d.Intensities, (w, i) => new { W = w, I = i }))
+                .OrderBy(p => p.W)
+                .ToList();
+
+            var stitchedWavelengths = allPoints.Select(p => p.W).ToArray();
+            var stitchedIntensities = allPoints.Select(p => p.I).ToArray();
+
+            // 生成全谱数据实体，设定统一的系统虚拟标识
+            return new SpectralData(stitchedWavelengths, stitchedIntensities, "Combined_System");
         }
 
         /// <summary>
-        /// 核心处理逻辑：每当收到新光谱数据时触发
+        /// 校验光谱数据是否达到硬件饱和（过曝）。
         /// </summary>
-        private void OnSpectralDataReceived(SpectralData data)
+        /// <param name="data">单次采集的光谱数据实体。</param>
+        /// <returns>若存在任何像素强度超过 65000（基于 16 位 ADC），则返回 true；否则返回 false。</returns>
+        public static bool CheckSaturation(SpectralData data)
         {
-            // 自动执行饱和检查
-            if (_spectrometerService.Config.IsSaturationDetectionEnabled)
-            {
-                CheckSaturation(data);
-            }
-            
-            _latestDataCache[data.SourceDeviceSerial] = data;   // 更新缓存
+            if (data == null || data.Intensities == null || data.Intensities.Length == 0) return false;
 
-            // 3. 如果需要实时拼接，可以在此处调用
-            // PerformStitching();
+            return data.Intensities.Any(i => i > 65000);
         }
 
         /// <summary>
-        /// 寻找光谱中的最大强度及其对应的波长（GD 机器寻优核心算法）
+        /// 寻找光谱中的绝对最大强度及其对应的波长（GD 机器寻优核心算法）。
         /// </summary>
         /// <param name="data">光谱数据实体。</param>
-        /// <returns>返回 (波长, 最大强度) 的元组。</returns>
-        public (double wavelength, double intensity) FindPeak(SpectralData data)
+        /// <returns>返回包含 (波长, 最大强度) 的元组；若数据为空则返回 (0, 0)。</returns>
+        public static (double wavelength, double intensity) FindPeak(SpectralData data)
         {
-            if (data == null || data.Intensities.Length == 0) return (0, 0);
+            if (data == null || data.Intensities == null || data.Intensities.Length == 0) return (0, 0);
 
             double maxIntensity = data.Intensities.Max();
             int index = Array.IndexOf(data.Intensities, maxIntensity);
@@ -64,36 +65,18 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
         }
 
         /// <summary>
-        /// 多设备光谱拼接算法：去重、排序并生成全谱
+        /// 动态寻峰：在指定理论波长的容差窗口内，锁定并返回实际最强点对应的真实波长（用于应对环境温度等引起的波长漂移）。
         /// </summary>
-        public void PerformStitching()
+        /// <param name="data">光谱数据实体。</param>
+        /// <param name="targetWavelength">期望寻找的理论中心波长。</param>
+        /// <param name="tolerance">允许波长偏移的容差范围（± nm）。</param>
+        /// <returns>返回容差窗口内实际强度最大处的波长。若窗口内无数据或输入为空，则直接返回原理论波长。</returns>
+        public static double GetActualPeakWavelength(SpectralData data, double targetWavelength, double tolerance)
         {
-            if (_latestDataCache.Count < 2) return; // 只有一台设备时不执行拼接
-
-            // 将所有缓存的数据合并到一个列表中
-            var allPoints = _latestDataCache.Values
-                .SelectMany(d => d.Wavelengths.Zip(d.Intensities, (w, i) => new { W = w, I = i }))
-                .OrderBy(p => p.W) // 按波长升序排列
-                .ToList();
-
-            // 简单的去重逻辑：如果波长极度接近，取平均值或最大值
-            var stitchedWavelengths = allPoints.Select(p => p.W).ToArray();
-            var stitchedIntensities = allPoints.Select(p => p.I).ToArray();
-            var combinedData = new SpectralData(stitchedWavelengths, stitchedIntensities, "Combined_System");
-
-            // 发送拼接完成的消息
-            WeakReferenceMessenger.Default.Send(new CombinedSpectralMessage(combinedData));
-        }
-
-        /// <summary>
-        /// 1. 动态寻峰：在容差窗口内锁定真实的峰值波长（应对波长漂移）
-        /// </summary>
-        public double GetActualPeakWavelength(SpectralData data, double targetWavelength, double tolerance)
-        {
-            if (data == null || data.Wavelengths.Length == 0) return targetWavelength;
+            if (data == null || data.Wavelengths == null || data.Wavelengths.Length == 0) return targetWavelength;
 
             double maxIntensity = -1;
-            double actualWavelength = targetWavelength; // 默认返回理论值
+            double actualWavelength = targetWavelength;
 
             for (int i = 0; i < data.Wavelengths.Length; i++)
             {
@@ -105,22 +88,25 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                     if (data.Intensities[i] > maxIntensity)
                     {
                         maxIntensity = data.Intensities[i];
-                        actualWavelength = currentW; // 记录最强点对应的真实波长
+                        actualWavelength = currentW;
                     }
                 }
 
-                // 性能优化：波长升序，超出窗口后退出
+                // 性能优化：数组默认波长为升序，超出窗口后即可提前退出循环
                 if (currentW > targetWavelength + tolerance) break;
             }
             return actualWavelength;
         }
 
         /// <summary>
-        /// 2. 定点取值：获取光谱中与指定波长最接近的像素强度
+        /// 定点取值：获取光谱中与指定波长在物理上最接近的有效像素的强度值。
         /// </summary>
-        public double GetIntensityAtWavelength(SpectralData data, double wavelength)
+        /// <param name="data">光谱数据实体。</param>
+        /// <param name="wavelength">需要查询强度的目标波长。</param>
+        /// <returns>返回最接近该波长的像素强度；若数据为空则返回 0。</returns>
+        public static double GetIntensityAtWavelength(SpectralData data, double wavelength)
         {
-            if (data == null || data.Wavelengths.Length == 0) return 0;
+            if (data == null || data.Wavelengths == null || data.Wavelengths.Length == 0) return 0;
 
             int bestIndex = 0;
             double minDiff = double.MaxValue;
@@ -135,23 +121,11 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                 }
                 else if (data.Wavelengths[i] > wavelength)
                 {
-                    // 既然是升序，差异开始变大时说明已经越过最接近点
+                    // 数组为升序，差异开始变大时说明已经越过了最接近点，可提前退出
                     break;
                 }
             }
             return data.Intensities[bestIndex];
-        }
-
-        /// <summary>
-        /// 校验光谱是否达到硬件饱和
-        /// </summary>
-        private void CheckSaturation(SpectralData data)
-        {
-            if (data.Intensities.Any(i => i > 65000))   // 16位 ADC
-            {
-                // 发送状态变更消息提醒 UI
-                WeakReferenceMessenger.Default.Send(new SpectrometerStatusMessage(_spectrometerService.Config));
-            }
         }
     }
 }

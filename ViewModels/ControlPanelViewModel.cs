@@ -37,7 +37,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty]
         private bool _isSteeringValveActive;
 
-        public ControlPanelViewModel(GeneralDeviceService generalDeviceService, BatteryService batteryService, 
+        private bool _isToggling = false; // 防连点锁
+
+        public ControlPanelViewModel(GeneralDeviceService generalDeviceService, BatteryService batteryService,
             HighVoltageService highVoltageService, JsonConfigService jsonConfigService)
         {
             _generalDeviceService = generalDeviceService;
@@ -45,8 +47,25 @@ namespace GD_ControlCenter_WPF.ViewModels
             _highVoltageService = highVoltageService;
             _jsonConfigService = jsonConfigService;
 
-            // 初始化光谱仪包装器
-            SpecVM = new SpectrometerViewModel(new SpectrometerConfig(), null!);
+            // --- 读取本地配置 ---
+            var appConfig = _jsonConfigService.Load();
+            var specConfig = new SpectrometerConfig();
+
+            // 如果配置值大于 0，则使用配置值；否则保留 SpectrometerConfig 中的默认值
+            if (appConfig.LastIntegrationTime > 0) specConfig.IntegrationTimeMs = appConfig.LastIntegrationTime;
+            if (appConfig.LastAveragingCount > 0) specConfig.AveragingCount = appConfig.LastAveragingCount;
+
+            // 初始化光谱仪包装器，并注入保存配置的逻辑
+            SpecVM = new SpectrometerViewModel(specConfig, null!)
+            {
+                SaveConfigAction = () =>
+                {
+                    var config = _jsonConfigService.Load();
+                    config.LastIntegrationTime = SpecVM.IntegrationTimeMs;
+                    config.LastAveragingCount = SpecVM.AveragingCount;
+                    _jsonConfigService.Save(config);
+                }
+            };
 
             // 启动电池监控
             _batterySvc.Start();
@@ -72,40 +91,192 @@ namespace GD_ControlCenter_WPF.ViewModels
         /// <summary>
         /// 光谱仪启停切换逻辑
         /// </summary>
+        //[RelayCommand]
+        //private async Task ToggleSpectrometer()
+        //{
+        //    // 获取当前管理的服务实例
+        //    var service = SpectrometerManager.Instance.Devices.FirstOrDefault();
+
+        //    // 如果没有设备，先尝试发现一次
+        //    if (service == null)
+        //    {
+        //        int count = await SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
+        //        if (count == 0) { StatusInfo = "未检测到光谱仪"; return; }
+        //        service = SpectrometerManager.Instance.Devices.First();
+        //    }
+
+        //    if (!SpecVM.IsCurrentlyMeasuring)
+        //    {
+        //        StatusInfo = "正在初始化硬件...";
+        //        if (await service.InitializeAsync())
+        //        {
+        //            // --- 新增：将 UI 配置同步给硬件 Service ---
+        //            service.Config.IntegrationTimeMs = SpecVM.IntegrationTimeMs;
+        //            service.Config.AveragingCount = SpecVM.AveragingCount;
+
+        //            SpecVM.SetService(service);
+        //            SpecVM.Model.SerialNumber = service.Config.SerialNumber;
+        //            SpecVM.Model.IsConnected = true; // 确保标记为已连接
+        //            SpecVM.UpdateFromModel();
+
+        //            service.StartContinuousMeasurement();
+
+        //            SpecVM.IsCurrentlyMeasuring = true;
+        //            StatusInfo = $"采集进行中: {SpecVM.SerialNumber}";
+        //        }
+        //    }
+        //    else
+        //    {
+        //        service.StopMeasurement();
+        //        SpecVM.IsCurrentlyMeasuring = false;
+        //        StatusInfo = "采集已停止";
+        //    }
+        //}
+
+        ///// <summary>
+        ///// 光谱仪启停切换逻辑（支持多机联机识别）
+        ///// </summary>
+        //[RelayCommand]
+        //private async Task ToggleSpectrometer()
+        //{
+        //    // 1. 获取设备，若无则尝试扫描
+        //    if (SpectrometerManager.Instance.Devices.Count == 0)
+        //    {
+        //        StatusInfo = "正在扫描光谱仪...";
+        //        int count = await SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
+        //        if (count == 0)
+        //        {
+        //            StatusInfo = "未检测到光谱仪";
+        //            return;
+        //        }
+        //    }
+
+        //    var devices = SpectrometerManager.Instance.Devices;
+        //    int deviceCount = devices.Count;
+
+        //    if (!SpecVM.IsCurrentlyMeasuring)
+        //    {
+        //        StatusInfo = "正在初始化硬件...";
+        //        bool allSuccess = true;
+
+        //        // 2. 遍历初始化所有设备，并强行同步 UI 全局配置
+        //        foreach (var service in devices)
+        //        {
+        //            if (await service.InitializeAsync())
+        //            {
+        //                service.Config.IntegrationTimeMs = SpecVM.IntegrationTimeMs;
+        //                service.Config.AveragingCount = SpecVM.AveragingCount;
+        //            }
+        //            else
+        //            {
+        //                allSuccess = false;
+        //                break;
+        //            }
+        //        }
+
+        //        if (allSuccess)
+        //        {
+        //            // 3. 注入首个设备以兼容原有状态绑定，动态修改序列号显示
+        //            SpecVM.SetService(devices.First());
+        //            SpecVM.Model.SerialNumber = deviceCount == 1 ? devices.First().Config.SerialNumber : "联机模式";
+        //            SpecVM.Model.IsConnected = true;
+        //            SpecVM.UpdateFromModel();
+
+        //            // 4. 调用 Manager 进行全局启动
+        //            SpectrometerManager.Instance.StartAll();
+
+        //            SpecVM.IsCurrentlyMeasuring = true;
+        //            StatusInfo = deviceCount == 1
+        //                ? $"采集进行中: {devices.First().Config.SerialNumber}"
+        //                : $"多机联机采集运行中 (共 {deviceCount} 台)";
+        //        }
+        //        else
+        //        {
+        //            StatusInfo = "部分设备初始化失败";
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // 5. 调用 Manager 进行全局停止
+        //        SpectrometerManager.Instance.StopAll();
+        //        SpecVM.IsCurrentlyMeasuring = false;
+        //        StatusInfo = "采集已停止";
+        //    }
+        //}
+
+        /// <summary>
+        /// 光谱仪启停切换逻辑（支持多机联机识别）
+        /// </summary>
         [RelayCommand]
         private async Task ToggleSpectrometer()
         {
-            // 获取当前管理的服务实例
-            var service = SpectrometerManager.Instance.Devices.FirstOrDefault();
+            if (_isToggling) return; // 防止快速连点死锁
+            _isToggling = true;
 
-            // 如果没有设备，先尝试发现一次
-            if (service == null)
+            try
             {
-                int count = await SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
-                if (count == 0) { StatusInfo = "未检测到光谱仪"; return; }
-                service = SpectrometerManager.Instance.Devices.First();
-            }
-
-            if (!SpecVM.IsCurrentlyMeasuring)
-            {
-                StatusInfo = "正在初始化硬件...";
-                if (await service.InitializeAsync())
+                if (SpectrometerManager.Instance.Devices.Count == 0)
                 {
-                    SpecVM.SetService(service); // 在此处将真实的 service 注入包装器 ---
-                    // 同步身份并启动
-                    SpecVM.Model.SerialNumber = service.Config.SerialNumber;
-                    SpecVM.UpdateFromModel();
-                    service.StartContinuousMeasurement();
+                    StatusInfo = "正在扫描光谱仪...";
+                    int count = await SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
+                    if (count == 0) { StatusInfo = "未检测到光谱仪"; return; }
+                }
 
-                    SpecVM.IsCurrentlyMeasuring = true;
-                    StatusInfo = $"采集进行中: {SpecVM.SerialNumber}";
+                var devices = SpectrometerManager.Instance.Devices;
+                int deviceCount = devices.Count;
+
+                if (!SpecVM.IsCurrentlyMeasuring)
+                {
+                    StatusInfo = "正在初始化硬件...";
+
+                    bool allSuccess = await Task.Run(async () =>
+                    {
+                        bool success = true;
+                        foreach (var service in devices)
+                        {
+                            // 修复：判断是否已经连接，已连接则直接返回 true，未连接才执行 InitializeAsync
+                            bool isInitialized = service.Config.IsConnected || await service.InitializeAsync();
+
+                            if (isInitialized)
+                            {
+                                await service.UpdateConfigurationAsync(SpecVM.IntegrationTimeMs, SpecVM.AveragingCount);
+                            }
+                            else
+                            {
+                                success = false;
+                                break;
+                            }
+                        }
+                        if (success) SpectrometerManager.Instance.StartAll();
+                        return success;
+                    });
+
+                    if (allSuccess)
+                    {
+                        SpecVM.SetService(devices.First());
+                        SpecVM.Model.SerialNumber = deviceCount == 1 ? devices.First().Config.SerialNumber : "联机模式";
+                        SpecVM.Model.IsConnected = true;
+                        SpecVM.UpdateFromModel();
+                        SpecVM.IsCurrentlyMeasuring = true;
+                        StatusInfo = deviceCount == 1 ? $"采集进行中: {devices.First().Config.SerialNumber}" : $"多机联机采集运行中 (共 {deviceCount} 台)";
+                    }
+                    else
+                    {
+                        StatusInfo = "部分设备初始化失败";
+                    }
+                }
+                else
+                {
+                    StatusInfo = "正在安全停止硬件...";
+                    // 后台执行停止，等待底层 C++ 线程安全退出
+                    await Task.Run(() => SpectrometerManager.Instance.StopAll());
+                    SpecVM.IsCurrentlyMeasuring = false;
+                    StatusInfo = "采集已停止";
                 }
             }
-            else
+            finally
             {
-                service.StopMeasurement();
-                SpecVM.IsCurrentlyMeasuring = false;
-                StatusInfo = "采集已停止";
+                _isToggling = false; // 释放锁
             }
         }
 
@@ -163,6 +334,50 @@ namespace GD_ControlCenter_WPF.ViewModels
             window.Owner = System.Windows.Application.Current.MainWindow;
 
             // 6. 以模态对话框形式打开
+            window.ShowDialog();
+        }
+
+        /// <summary>
+        /// 打开积分时间配置弹窗
+        /// </summary>
+        [RelayCommand]
+        private void OpenIntegrationTimeConfig()
+        {
+            var window = new GD_ControlCenter_WPF.Views.Dialogs.SpecParamSettingWindow();
+            var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.SpecParamSettingViewModel(
+                windowTitle: "积分时间设置",
+                headerTitle: "参数配置 - 积分时间 (ms)",
+                currentValue: SpecVM.IntegrationTimeMs,
+                min: SpecVM.Model.MinIntegrationTime,
+                max: 600000,
+                step: 5.0,
+                applyAction: (val) => SpecVM.ChangeIntegrationTimeCommand.Execute(val),
+                closeAction: () => window.Close()
+            );
+            window.DataContext = vm;
+            window.Owner = System.Windows.Application.Current.MainWindow;
+            window.ShowDialog();
+        }
+
+        /// <summary>
+        /// 打开平均次数配置弹窗
+        /// </summary>
+        [RelayCommand]
+        private void OpenAveragingCountConfig()
+        {
+            var window = new GD_ControlCenter_WPF.Views.Dialogs.SpecParamSettingWindow();
+            var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.SpecParamSettingViewModel(
+                windowTitle: "平均次数设置",
+                headerTitle: "参数配置 - 平均次数",
+                currentValue: SpecVM.AveragingCount,
+                min: 1,
+                max: 10000,
+                step: 1.0,
+                applyAction: (val) => SpecVM.ChangeAveragingCountCommand.Execute(val),
+                closeAction: () => window.Close()
+            );
+            window.DataContext = vm;
+            window.Owner = System.Windows.Application.Current.MainWindow;
             window.ShowDialog();
         }
 

@@ -41,6 +41,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         /// </summary>
         public event Action<SpectralData>? RequestPlotUpdate;
 
+        // 用于保存配置的委托
+        public Action? SaveConfigAction { get; set; }
+
         public SpectrometerViewModel(SpectrometerConfig model, ISpectrometerService service)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
@@ -86,41 +89,63 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         // --- 参数修改逻辑 ---
 
-        /// <summary>
-        /// 异步更新积分时间
-        /// </summary>
         [RelayCommand]
         private async Task ChangeIntegrationTimeAsync(string timeStr)
         {
-            if (_service == null) return; // 如果还没连接硬件，直接返回
-
             if (float.TryParse(timeStr, out float newTime))
             {
-                // 调用 Service 的安全更新方法：自动处理 停止->应用->重启 流程
-                int result = await _service.UpdateConfigurationAsync(newTime, AveragingCount);
+                IntegrationTimeMs = newTime;
+                _model.IntegrationTimeMs = newTime;
+                SaveConfigAction?.Invoke();
 
-                if (result == 0) // ERR_SUCCESS
+                var devices = SpectrometerManager.Instance.Devices;
+                if (devices.Count > 0)
                 {
-                    IntegrationTimeMs = newTime;
-                    _model.IntegrationTimeMs = newTime;
+                    // 在后台执行完整的硬件重启流程，防止 UI 卡死
+                    await Task.Run(async () =>
+                    {
+                        bool wasMeasuring = IsCurrentlyMeasuring;
+
+                        // 1. 如果正在测量，必须先让硬件停下来
+                        if (wasMeasuring) SpectrometerManager.Instance.StopAll();
+
+                        // 2. 更新底层硬件配置
+                        var updateTasks = devices.Select(device => device.UpdateConfigurationAsync(newTime, AveragingCount));
+                        await Task.WhenAll(updateTasks);
+
+                        // 3. 恢复测量
+                        if (wasMeasuring) SpectrometerManager.Instance.StartAll();
+                    });
                 }
             }
         }
 
-        /// <summary>
-        /// 异步更新平均次数
-        /// </summary>
         [RelayCommand]
         private async Task ChangeAveragingCountAsync(string countStr)
         {
             if (uint.TryParse(countStr, out uint newCount))
             {
-                int result = await _service.UpdateConfigurationAsync(IntegrationTimeMs, newCount);
+                AveragingCount = newCount;
+                _model.AveragingCount = newCount;
+                SaveConfigAction?.Invoke();
 
-                if (result == 0)
+                var devices = SpectrometerManager.Instance.Devices;
+                if (devices.Count > 0)
                 {
-                    AveragingCount = newCount;
-                    _model.AveragingCount = newCount;
+                    await Task.Run(async () =>
+                    {
+                        bool wasMeasuring = IsCurrentlyMeasuring;
+
+                        // 1. 先停
+                        if (wasMeasuring) SpectrometerManager.Instance.StopAll();
+
+                        // 2. 更新配置
+                        var updateTasks = devices.Select(device => device.UpdateConfigurationAsync(IntegrationTimeMs, newCount));
+                        await Task.WhenAll(updateTasks);
+
+                        // 3. 恢复
+                        if (wasMeasuring) SpectrometerManager.Instance.StartAll();
+                    });
                 }
             }
         }
