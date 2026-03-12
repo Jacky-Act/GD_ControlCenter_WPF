@@ -35,9 +35,6 @@ namespace GD_ControlCenter_WPF.Views.Components
                     case 4:
                         vm.CurrentPage = vm.SampleMeasurementVM;
                         break;
-                    case 5:
-                        vm.CurrentPage = vm.SpatialDistributionVM;
-                        break;
                 }
             }
         }

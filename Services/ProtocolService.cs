@@ -30,24 +30,10 @@ namespace GD_ControlCenter_WPF.Services
 
             while (_buffer.Count > 0)
             {
-                // --- 1. 电池协议识别 (DD 03 ... 77), 长度 34 ---
-                if (_buffer[0] == 0xDD && _buffer.Count >= 2 && _buffer[1] == 0x03)
-                {
-                    if (_buffer.Count < 34) break; // 数据包不全，等待后续
-
-                    if (_buffer[33] == 0x77) // 验证帧尾
-                    {
-                        var frame = _buffer.Take(34).ToArray();
-                        WeakReferenceMessenger.Default.Send(new BatteryFrameMessage(frame));
-                        _buffer.RemoveRange(0, 34);
-                        continue;
-                    }
-                }
-
-                // --- 2. 控制协议族识别 (以 0x68 开头) ---
+                // --- 控制协议族识别 (以 0x68 开头) ---
                 if (_buffer[0] == ControlProtocol.FrameHeader)
                 {
-                    // 2.1 三维平台响应 (8 字节格式)
+                    // 三维平台响应 (8 字节格式)
                     if (_buffer.Count >= 4 && (FunctionCode)_buffer[3] == FunctionCode.Platform3D)
                     {
                         const int platformFrameLength = 8;
@@ -62,7 +48,7 @@ namespace GD_ControlCenter_WPF.Services
                         }
                     }
 
-                    // 2.2 标准控制响应 (13 字节格式)
+                    // 标准控制响应 (13 字节格式)
                     if (_buffer.Count >= ControlProtocol.CommandTotalLength)
                     {
                         if (_buffer[ControlProtocol.CommandTotalLength - 1] == ControlProtocol.FrameFooter)
@@ -74,7 +60,18 @@ namespace GD_ControlCenter_WPF.Services
 
                             if (frame[10] == crc[0] && frame[11] == crc[1])
                             {
-                                WeakReferenceMessenger.Default.Send(new ControlResponseMessage(frame));
+                                // 通过功能码区分心跳状态数据与常规指令回执
+                                if (frame[3] == (byte)FunctionCode.Battery) // 假设已定义 Battery = 0xEE
+                                {
+                                    // 仅发送给 BatteryService
+                                    WeakReferenceMessenger.Default.Send(new BatteryFrameMessage(frame));
+                                }
+                                else
+                                {
+                                    // 发送给其他通用控制逻辑
+                                    WeakReferenceMessenger.Default.Send(new ControlResponseMessage(frame));
+                                }
+
                                 _buffer.RemoveRange(0, ControlProtocol.CommandTotalLength);
                                 continue;
                             }

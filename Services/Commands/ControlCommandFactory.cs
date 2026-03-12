@@ -191,14 +191,13 @@ namespace GD_ControlCenter_WPF.Services.Commands
         }
 
         /// <summary>
-        /// 生成电池状态直接查询命令
-        /// 直接与电池通信，不经过控制板
-        /// 协议固定序列：DD A5 03 00 FF FD 77
+        /// 生成电池状态查询命令 (标准13字节帧)
         /// </summary>
-        /// <returns>7 字节查询指令</returns>
         public static byte[] CreateBatteryQuery()
         {
-            return new byte[] { 0xDD, 0xA5, 0x03, 0x00, 0xFF, 0xFD, 0x77 };
+            byte[] data = new byte[4] { 0x00, 0x00, 0x00, 0x00 };
+
+            return PackFrame(DeviceAddr.Controller, CommandType.PC_To_Controller, FunctionCode.Battery, data);
         }
 
         #endregion

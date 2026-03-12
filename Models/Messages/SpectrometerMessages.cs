@@ -27,7 +27,7 @@ namespace GD_ControlCenter_WPF.Models.Messages
         /// <summary>
         /// 光谱仪状态变更消息。
         /// 当光谱仪连接成功、意外断开或检测到像素饱和报警时发布。
-        /// 典型订阅者：状态栏 UI、系统运行日志模块。
+        /// 典型订阅者：状态栏 UI。
         /// </summary>
         public class SpectrometerStatusMessage : ValueChangedMessage<SpectrometerConfig>
         {

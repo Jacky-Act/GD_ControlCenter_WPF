@@ -58,6 +58,7 @@ namespace GD_ControlCenter_WPF.Models.Protocols
         MultiChannelValve = 0x77,  // 多通道阀控制
         Ignition = 0x88,           // 点火控制
         SteeringValve = 0x99,      // 转向阀（双通道切换）
+        Battery = 0xEE,            // 电池通信
         Platform3D = 0xFF          // 三维平台移动
     }
 }

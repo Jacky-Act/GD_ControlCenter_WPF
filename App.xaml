@@ -36,10 +36,6 @@
                 <pages:SampleMeasurementView />
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type vm:SpatialDistributionViewModel}">
-                <pages:SpatialDistributionView />
-            </DataTemplate>
-
             <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
                 <pages:SettingsView />
             </DataTemplate>

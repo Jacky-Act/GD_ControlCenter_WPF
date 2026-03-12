@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Protocols;
 using GD_ControlCenter_WPF.Services.Commands;
 using System.Timers;
 
@@ -18,17 +19,13 @@ namespace GD_ControlCenter_WPF.Services
         private DateTime _lastReceivedTime = DateTime.MinValue;
         private const int MaxOfflineSeconds = 10;
 
-        #region 向外暴露的业务属性
+        // 新增状态更新事件
+        public event EventHandler? StatusUpdated;
 
-        [ObservableProperty]
-        private int _percentage;      // 剩余容量百分比 (RSOC) 
-
-        [ObservableProperty]
-        private bool _isOnline;       // 通讯是否在线
-
-        [ObservableProperty]
-        private bool _isCharging;     // 是否正在执行充电动作 (电流 > 0) 
-        #endregion
+        // 替换为原生只读属性
+        public int Percentage { get; private set; }
+        public bool IsOnline { get; private set; }
+        public bool IsCharging { get; private set; }
 
         public BatteryService(ISerialPortService serialPortService)
         {
@@ -72,10 +69,10 @@ namespace GD_ControlCenter_WPF.Services
         /// </summary>
         private void OnPollingTimerElapsed(object? sender, ElapsedEventArgs e)
         {
-            // 通讯超时检查逻辑
             if (IsOnline && (DateTime.Now - _lastReceivedTime).TotalSeconds > MaxOfflineSeconds)
             {
                 IsOnline = false;
+                StatusUpdated?.Invoke(this, EventArgs.Empty); // 通知离线
             }
             SendQuery();
         }
@@ -85,43 +82,36 @@ namespace GD_ControlCenter_WPF.Services
         /// </summary>
         private void SendQuery()
         {
-            // 指令序列：DD A5 03 00 FF FD 77
             var cmd = ControlCommandFactory.CreateBatteryQuery();
             _serialPortService.Send(cmd);
         }
 
         /// <summary>
-        /// 核心解析与逻辑判断方法
+        /// 核心报文解析逻辑。
+        /// 验证功能码后，按照协议定义的索引提取电流状态与剩余容量。
         /// </summary>
-        /// <param name="frame">由 ProtocolService 截取的完整 34 字节数据包 </param>
+        /// <param name="frame">接收到的 13 字节标准完整帧。</param>
         private void ParseBatteryData(byte[] frame)
-                                                                                                                                                       {
-            System.Diagnostics.Debug.WriteLine("收到电池数据帧");
-            if (frame.Length < 34) return;
-
-            try
+        {
+            if (frame.Length == 13 && (FunctionCode)frame[3] == FunctionCode.Battery)
             {
-                // 解析电流数据 (Index 6, 7)
-                byte byte6 = frame[6];
-                byte byte7 = frame[7];
+                try
+                {
+                    byte currentHigh = frame[6];
+                    byte currentLow = frame[7];
 
-                // 解析剩余容量 (Index 23) 
-                Percentage = frame[23];
+                    Percentage = frame[8];
 
-                // --- 充电判定逻辑 ---
-                // 逻辑：
-                // 1. 未充电判断：第六字节最高位为 1 (代表负电流/放电) OR (第六字节和第七字节均为 0)
-                // 2. 充电判断：第六字节最高位为 0 (代表正电流) AND (第六字节和第七字节至少一个不为 0)
-                bool isNegativeOrZero = (byte6 >> 7 == 1) || (byte6 == 0 && byte7 == 0);
-                IsCharging = !isNegativeOrZero;
+                    bool isNegativeOrZero = (currentHigh >> 7 == 1) || (currentHigh == 0 && currentLow == 0);
+                    IsCharging = !isNegativeOrZero;
 
-                // 更新通讯状态
-                IsOnline = true; 
-                _lastReceivedTime = DateTime.Now;
-            }
-            catch (Exception)
-            {
-                // 异常处理逻辑，防止坏包导致程序崩溃
+                    IsOnline = true;
+                    _lastReceivedTime = DateTime.Now;
+
+                    // 解析完成后触发事件，通知 ViewModel 更新
+                    StatusUpdated?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception) { }
             }
         }
 

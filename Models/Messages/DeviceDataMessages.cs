@@ -11,8 +11,7 @@ namespace GD_ControlCenter_WPF.Models.Messages
 {
     /// <summary>
     /// 电池数据消息。
-    /// 承载来自电池的 34 字节完整电池状态帧，包含电压、电流、温度等原始数据。
-    /// 这是与电池的直接通信，不经过控制板。
+    /// 承载来自控制板的 13 字节标准帧，包含电池状态反馈数据。
     /// </summary>
     public class BatteryFrameMessage : ValueChangedMessage<byte[]>
     {

@@ -17,7 +17,7 @@ namespace GD_ControlCenter_WPF.ViewModels
         // --- 核心服务与子 VM ---    
         [ObservableProperty] private SpectrometerViewModel _specVM; // 光谱仪
         [ObservableProperty] private ObservableCollection<DeviceBaseViewModel> _devices = new();    // 设备卡片集合
-        [ObservableProperty] private BatteryService _batterySvc;    // 电池
+        [ObservableProperty] private BatteryViewModel _batteryVM; // 电池
 
         // --- 布局控制 ---
         [ObservableProperty]
@@ -30,7 +30,6 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         // --- 硬件控制服务 ---
         private readonly GeneralDeviceService _generalDeviceService;
-        private readonly HighVoltageService _highVoltageService;
         private readonly JsonConfigService _jsonConfigService;
 
         // 3. 定义转向阀状态属性
@@ -39,13 +38,18 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         private bool _isToggling = false; // 防连点锁
 
-        public ControlPanelViewModel(GeneralDeviceService generalDeviceService, BatteryService batteryService,
-            HighVoltageService highVoltageService, JsonConfigService jsonConfigService)
+        // 修改点：通过构造函数直接注入所有的子 ViewModel，不再手动 new
+        public ControlPanelViewModel(
+            GeneralDeviceService generalDeviceService,
+            JsonConfigService jsonConfigService,
+            BatteryViewModel batteryVM,
+            HighVoltageViewModel highVoltageVM,
+            PeristalticPumpViewModel peristalticPumpVM,
+            SyringePumpViewModel syringePumpVM)
         {
             _generalDeviceService = generalDeviceService;
-            _batterySvc = batteryService;
-            _highVoltageService = highVoltageService;
             _jsonConfigService = jsonConfigService;
+            _batteryVM = batteryVM;
 
             // --- 读取本地配置 ---
             var appConfig = _jsonConfigService.Load();
@@ -67,142 +71,13 @@ namespace GD_ControlCenter_WPF.ViewModels
                 }
             };
 
-            // 启动电池监控
-            _batterySvc.Start();
-            InitializeDevices();
-        }
-
-        private void InitializeDevices()
-        {
-            // 初始化高压电源并加入集合
-            Devices.Add(new HighVoltageViewModel(_highVoltageService, _jsonConfigService));
-
-            // 初始化蠕动泵并加入集合
-            Devices.Add(new PeristalticPumpViewModel(_generalDeviceService, _jsonConfigService));
-
-            // 初始化注射泵并加入集合
-            Devices.Add(new SyringePumpViewModel(_generalDeviceService, _jsonConfigService));
-
-            // 后续增加 3D 平台或其他设备只需在此 Add 即可
+            // 直接将注入的 VM 添加到集合中
+            Devices.Add(highVoltageVM);
+            Devices.Add(peristalticPumpVM);
+            Devices.Add(syringePumpVM);
         }
 
         // --- 交互命令 ---
-
-        /// <summary>
-        /// 光谱仪启停切换逻辑
-        /// </summary>
-        //[RelayCommand]
-        //private async Task ToggleSpectrometer()
-        //{
-        //    // 获取当前管理的服务实例
-        //    var service = SpectrometerManager.Instance.Devices.FirstOrDefault();
-
-        //    // 如果没有设备，先尝试发现一次
-        //    if (service == null)
-        //    {
-        //        int count = await SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
-        //        if (count == 0) { StatusInfo = "未检测到光谱仪"; return; }
-        //        service = SpectrometerManager.Instance.Devices.First();
-        //    }
-
-        //    if (!SpecVM.IsCurrentlyMeasuring)
-        //    {
-        //        StatusInfo = "正在初始化硬件...";
-        //        if (await service.InitializeAsync())
-        //        {
-        //            // --- 新增：将 UI 配置同步给硬件 Service ---
-        //            service.Config.IntegrationTimeMs = SpecVM.IntegrationTimeMs;
-        //            service.Config.AveragingCount = SpecVM.AveragingCount;
-
-        //            SpecVM.SetService(service);
-        //            SpecVM.Model.SerialNumber = service.Config.SerialNumber;
-        //            SpecVM.Model.IsConnected = true; // 确保标记为已连接
-        //            SpecVM.UpdateFromModel();
-
-        //            service.StartContinuousMeasurement();
-
-        //            SpecVM.IsCurrentlyMeasuring = true;
-        //            StatusInfo = $"采集进行中: {SpecVM.SerialNumber}";
-        //        }
-        //    }
-        //    else
-        //    {
-        //        service.StopMeasurement();
-        //        SpecVM.IsCurrentlyMeasuring = false;
-        //        StatusInfo = "采集已停止";
-        //    }
-        //}
-
-        ///// <summary>
-        ///// 光谱仪启停切换逻辑（支持多机联机识别）
-        ///// </summary>
-        //[RelayCommand]
-        //private async Task ToggleSpectrometer()
-        //{
-        //    // 1. 获取设备，若无则尝试扫描
-        //    if (SpectrometerManager.Instance.Devices.Count == 0)
-        //    {
-        //        StatusInfo = "正在扫描光谱仪...";
-        //        int count = await SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
-        //        if (count == 0)
-        //        {
-        //            StatusInfo = "未检测到光谱仪";
-        //            return;
-        //        }
-        //    }
-
-        //    var devices = SpectrometerManager.Instance.Devices;
-        //    int deviceCount = devices.Count;
-
-        //    if (!SpecVM.IsCurrentlyMeasuring)
-        //    {
-        //        StatusInfo = "正在初始化硬件...";
-        //        bool allSuccess = true;
-
-        //        // 2. 遍历初始化所有设备，并强行同步 UI 全局配置
-        //        foreach (var service in devices)
-        //        {
-        //            if (await service.InitializeAsync())
-        //            {
-        //                service.Config.IntegrationTimeMs = SpecVM.IntegrationTimeMs;
-        //                service.Config.AveragingCount = SpecVM.AveragingCount;
-        //            }
-        //            else
-        //            {
-        //                allSuccess = false;
-        //                break;
-        //            }
-        //        }
-
-        //        if (allSuccess)
-        //        {
-        //            // 3. 注入首个设备以兼容原有状态绑定，动态修改序列号显示
-        //            SpecVM.SetService(devices.First());
-        //            SpecVM.Model.SerialNumber = deviceCount == 1 ? devices.First().Config.SerialNumber : "联机模式";
-        //            SpecVM.Model.IsConnected = true;
-        //            SpecVM.UpdateFromModel();
-
-        //            // 4. 调用 Manager 进行全局启动
-        //            SpectrometerManager.Instance.StartAll();
-
-        //            SpecVM.IsCurrentlyMeasuring = true;
-        //            StatusInfo = deviceCount == 1
-        //                ? $"采集进行中: {devices.First().Config.SerialNumber}"
-        //                : $"多机联机采集运行中 (共 {deviceCount} 台)";
-        //        }
-        //        else
-        //        {
-        //            StatusInfo = "部分设备初始化失败";
-        //        }
-        //    }
-        //    else
-        //    {
-        //        // 5. 调用 Manager 进行全局停止
-        //        SpectrometerManager.Instance.StopAll();
-        //        SpecVM.IsCurrentlyMeasuring = false;
-        //        StatusInfo = "采集已停止";
-        //    }
-        //}
 
         /// <summary>
         /// 光谱仪启停切换逻辑（支持多机联机识别）
@@ -234,7 +109,7 @@ namespace GD_ControlCenter_WPF.ViewModels
                         bool success = true;
                         foreach (var service in devices)
                         {
-                            // 修复：判断是否已经连接，已连接则直接返回 true，未连接才执行 InitializeAsync
+                            // 判断是否已经连接，已连接则直接返回 true，未连接才执行 InitializeAsync
                             bool isInitialized = service.Config.IsConnected || await service.InitializeAsync();
 
                             if (isInitialized)
@@ -387,8 +262,8 @@ namespace GD_ControlCenter_WPF.ViewModels
         public void SetInitialHeight(double height)
         {
             DashboardHeight = height;
-            _originalHeight = height;           
+            _originalHeight = height;
             ParamHeaderHeight = Math.Max(35, height * 0.15);    // 动态设置参数栏高度
-        }      
+        }
     }
 }

@@ -51,7 +51,7 @@
                 <TabItem x:Name="ElementConfigTab">
                     <TabItem.Header>
                         <StackPanel Width="52" Margin="0,8">
-                            <materialDesign:PackIcon Kind="PeriodicTable" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <materialDesign:PackIcon Kind="OfficeBuildingPlusOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
                             <TextBlock Text="元素配置" HorizontalAlignment="Center" FontSize="11"/>
                         </StackPanel>
                     </TabItem.Header>
@@ -71,15 +71,6 @@
                         <StackPanel Width="52" Margin="0,8">
                             <materialDesign:PackIcon Kind="FlaskOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
                             <TextBlock Text="连续测量" HorizontalAlignment="Center" FontSize="11"/>
-                        </StackPanel>
-                    </TabItem.Header>
-                </TabItem>
-
-                <TabItem x:Name="SpatialDistributionTab">
-                    <TabItem.Header>
-                        <StackPanel Width="52" Margin="0,8">
-                            <materialDesign:PackIcon Kind="BorderNone" HorizontalAlignment="Center" Width="24" Height="24"/>
-                            <TextBlock Text="空间分布" HorizontalAlignment="Center" FontSize="11"/>
                         </StackPanel>
                     </TabItem.Header>
                 </TabItem>

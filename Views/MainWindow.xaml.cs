@@ -1,4 +1,5 @@
 ﻿using GD_ControlCenter_WPF.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 
 namespace GD_ControlCenter_WPF.Views
@@ -8,6 +9,8 @@ namespace GD_ControlCenter_WPF.Views
         public MainWindow()
         {
             InitializeComponent();
+            // 从全局 IoC 容器中获取实例化好的 MainViewModel 并绑定
+            this.DataContext = App.Services.GetRequiredService<MainViewModel>();
             ApplyScreenProportionalSize();
         }
 
