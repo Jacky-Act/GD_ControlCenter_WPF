@@ -10,6 +10,7 @@ namespace GD_ControlCenter_WPF.ViewModels
     public partial class SettingsViewModel : ObservableObject
     {
         private readonly ISerialPortService _serialService;
+        private readonly JsonConfigService _configService;
         private const int BAUD_RATE = 9600;
 
         [ObservableProperty]
@@ -19,20 +20,45 @@ namespace GD_ControlCenter_WPF.ViewModels
         private string? _selectedPort;
 
         [ObservableProperty]
-        private string _connectButtonText = "连接";
-
-        [ObservableProperty]
         private string _statusText = "未连接";
 
-        // 此处推荐依赖接口 ISerialPortService，以符合依赖倒置原则
-        public SettingsViewModel(ISerialPortService serialService)
+        [ObservableProperty]
+        private bool _isSpectrometerEnabled;
+
+        [ObservableProperty]
+        private bool _isAutoReigniteEnabled;
+
+        public SettingsViewModel(ISerialPortService serialService, JsonConfigService configService)
         {
             _serialService = serialService;
+            _configService = configService;
 
-            // 订阅底层服务的标准事件
             _serialService.ConnectionStatusChanged += OnConnectionStatusChanged;
 
+            // 软件启动时，加载上一次保存的状态
+            var config = _configService.Load();
+            IsSpectrometerEnabled = config.IsSpectrometerEnabled;
+            IsAutoReigniteEnabled = config.IsAutoReigniteEnabled;
+
             RefreshPorts();
+        }
+
+        // 拦截开关改变事件：当拨动光谱仪开关时触发
+        partial void OnIsSpectrometerEnabledChanged(bool value)
+        {
+            var config = _configService.Load();
+            config.IsSpectrometerEnabled = value;
+            _configService.Save(config);
+
+            // TODO: 如果你希望点这个开关立马断开/连接光谱仪硬件，可以在这里调用 SpectrometerManager
+        }
+
+        // 拦截开关改变事件：当拨动自动点火开关时触发
+        partial void OnIsAutoReigniteEnabledChanged(bool value)
+        {
+            var config = _configService.Load();
+            config.IsAutoReigniteEnabled = value;
+            _configService.Save(config);
         }
 
         /// <summary>
@@ -78,33 +104,38 @@ namespace GD_ControlCenter_WPF.ViewModels
         [RelayCommand]
         private void Connect()
         {
+            if (string.IsNullOrEmpty(SelectedPort)) return;
+
+            // 如果当前已经处于连接状态，且选中的正是当前串口，则什么都不做
+            if (_serialService.IsOpen && _serialService.CurrentPortName == SelectedPort)
+            {
+                return;
+            }
+
+            // 如果当前连接着其他串口，先断开旧的
             if (_serialService.IsOpen)
             {
                 _serialService.Close();
             }
-            else
-            {
-                if (string.IsNullOrEmpty(SelectedPort)) return;
 
-                if (!_serialService.Open(SelectedPort, BAUD_RATE))
-                {
-                    MessageBox.Show($"无法打开串口 {SelectedPort}，可能被占用。", "连接失败", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+            // 尝试打开新串口
+            if (!_serialService.Open(SelectedPort, BAUD_RATE))
+            {
+                MessageBox.Show($"无法打开串口 {SelectedPort}，可能被占用。", "连接失败", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            // 无论是 Open 失败还是正常执行，都强制刷新一次 UI 确保同步
+
             UpdateStatusUI();
         }
 
         private void UpdateStatusUI()
         {
+            // 只负责更新右侧的状态提示文字
             if (_serialService.IsOpen)
             {
-                ConnectButtonText = "断开";
                 StatusText = $"已连接 ({_serialService.CurrentPortName ?? "未知"})";
             }
             else
             {
-                ConnectButtonText = "连接";
                 StatusText = "未连接";
             }
         }

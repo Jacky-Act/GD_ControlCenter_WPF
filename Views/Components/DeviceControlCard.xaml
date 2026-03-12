@@ -46,18 +46,7 @@
                         </Style>
                     </Button.Style>
 
-                    <TextBlock TextWrapping="Wrap" TextAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="启动"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                        <Setter Property="Text" Value="停止"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <TextBlock Text="{Binding ButtonText}" TextWrapping="Wrap" TextAlignment="Center" />
                 </Button>
             </Grid>
         </materialDesign:Card>

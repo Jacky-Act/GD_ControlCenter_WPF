@@ -77,7 +77,7 @@
             </TabControl>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="1">
+        <!--<StackPanel Grid.Row="1">
             <Border BorderBrush="{DynamicResource MaterialDesignDivider}" 
                     BorderThickness="0,1,0,0" 
                     Margin="0,0"
@@ -104,6 +104,50 @@
                     <TextBlock Text="设置" HorizontalAlignment="Center" FontSize="11" Margin="0,4,0,0"/>
                 </StackPanel>
             </Button>
+        </StackPanel>-->
+
+        <StackPanel Grid.Row="1">
+            <Border BorderBrush="{DynamicResource MaterialDesignDivider}" 
+                    BorderThickness="0,1,0,0" 
+                    Margin="0,0"
+                    Opacity="0.5"/>
+
+            <TabControl x:Name="BottomTabControl"
+                        materialDesign:NavigationRailAssist.ShowSelectionBackground="True"
+                        Style="{StaticResource MaterialDesignNavigationRailTabControl}"
+                        TabStripPlacement="Left"
+                        SelectionChanged="BottomTabControl_SelectionChanged"
+                        Background="Transparent"
+                        Padding="0">
+
+                <TabControl.ItemContainerStyle>
+                    <Style TargetType="TabItem" BasedOn="{StaticResource MaterialDesignNavigationRailTabItem}">
+                        <Setter Property="Height" Value="60" />
+                        <Setter Property="Width" Value="60" />
+                        <Setter Property="Padding" Value="0" />
+                    </Style>
+                </TabControl.ItemContainerStyle>
+
+                <TabItem x:Name="HelpTab" ToolTip="帮助">
+                    <TabItem.Header>
+                        <StackPanel Width="52" Margin="0,8">
+                            <materialDesign:PackIcon Kind="HelpCircleOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="帮助" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                    <Border />
+                </TabItem>
+
+                <TabItem x:Name="SettingsTab" ToolTip="设置">
+                    <TabItem.Header>
+                        <StackPanel Width="52" Margin="0,8">
+                            <materialDesign:PackIcon Kind="SettingsOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="设置" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                    <Border />
+                </TabItem>
+            </TabControl>
         </StackPanel>
 
         <Border Grid.RowSpan="2" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="0,0,1,0" HorizontalAlignment="Right"/>

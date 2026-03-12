@@ -29,13 +29,9 @@ namespace GD_ControlCenter_WPF.Services
         private DateTime _lastReceivedTime = DateTime.MinValue;
         private const int MaxOfflineSeconds = 10;
 
-        #region 实时状态属性
-
         public int Voltage { get; private set; }      // 实时电压值 (V)
         public int Current { get; private set; }      // 实时电流值 (mA)
         public bool IsOnline { get; private set; }    // 硬件通讯在线状态
-
-        #endregion
 
         public HighVoltageService(ISerialPortService serialPortService)
         {
@@ -99,12 +95,13 @@ namespace GD_ControlCenter_WPF.Services
         }
 
         /// <summary>
-        /// 构造并发送功能码为 0x66 的查询请求帧，要求硬件返回一次电压电流值
+        /// 构造并发送功能码为 0x66 的查询请求帧，要求硬件返回一次电压电流值（低优先级）
         /// </summary>
         private void SendQuery()
         {
             var cmd = ControlCommandFactory.CreateHighVoltageQuery();
-            _serialPortService.Send(cmd);
+            // 标记为低优先级查询轮询
+            _serialPortService.Send(cmd, CommandPriority.Low);
         }
 
         /// <summary>
@@ -112,6 +109,8 @@ namespace GD_ControlCenter_WPF.Services
         /// 验证功能码后，按照协议定义的索引提取电压与电流（高位+低位组合）。
         /// </summary>
         /// <param name="frame">接收到的 13 字节标准完整帧。</param>
+        /// 
+            
         private void ParseResponse(byte[] frame)
         {
             // 判定功能码是否为 0x66 (ReturnPowerInfo) 
@@ -119,18 +118,25 @@ namespace GD_ControlCenter_WPF.Services
             {
                 try
                 {
-                    // 电压解析：Index 6(高字节) + Index 7(低字节)
-                    Voltage = (frame[6] << 8) | frame[7];
+                    // 回传电压计算 (计算后四舍五入并转为整数)
+                    double rawVoltage = frame[7] + (frame[6] & 0x7f) * 256.0;
+                    Voltage = (int)Math.Round(rawVoltage / 32768.0 * 2.048 * 5.25 * 150.0);
 
-                    // 电流解析：Index 8(高字节) + Index 9(低字节)
-                    Current = (frame[8] << 8) | frame[9];
+                    // 回传电流计算 (计算后四舍五入并转为整数)
+                    double rawCurrent = frame[9] + (frame[8] & 0x7f) * 256.0;
+                    Current = (int)Math.Round(rawCurrent / 32768.0 * 2.048 * 5.25 * 10.0);
 
                     IsOnline = true;
-                    _lastReceivedTime = DateTime.Now;   // 重置看门狗时间
+                    _lastReceivedTime = DateTime.Now;
+
+                    // 触发属性变更通知，唤醒 ViewModel 更新 UI
+                    OnPropertyChanged(nameof(Voltage));
+                    OnPropertyChanged(nameof(Current));
+                    OnPropertyChanged(nameof(IsOnline));
                 }
                 catch (Exception)
                 {
-                    // 异常处理逻辑，防止坏包导致程序崩溃
+                    // 异常处理逻辑
                 }
             }
         }

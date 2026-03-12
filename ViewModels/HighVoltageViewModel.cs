@@ -4,7 +4,6 @@ using GD_ControlCenter_WPF.ViewModels.Dialogs;
 using GD_ControlCenter_WPF.Views.Dialogs;
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Media;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -40,8 +39,9 @@ namespace GD_ControlCenter_WPF.ViewModels
             // 订阅 Service 的属性变化事件
             _hvService.PropertyChanged += OnServicePropertyChanged;
 
-            // 初始化同步一次状态
-            UpdateUIProperties();
+            // 初始化时：既要加载配置设定值，也要同步一次初始状态
+            LoadConfigSettings();
+            UpdateMonitorData();
         }
 
         // --- 3. 核心逻辑：数据同步 ---
@@ -51,24 +51,30 @@ namespace GD_ControlCenter_WPF.ViewModels
             // 使用 Dispatcher 确保在 UI 线程更新（如果 Service 是在后台线程触发的）
             Application.Current.Dispatcher.Invoke(() =>
             {
-                UpdateUIProperties();
+                UpdateMonitorData(); 
             });
         }
 
-        private void UpdateUIProperties()
+        /// <summary>
+        /// 高频刷新：仅同步来自硬件的实时监控数据（每秒触发）
+        /// </summary>
+        private void UpdateMonitorData()
         {
-            // 1. 同步监控值（来自 Service）
             MonitorVoltage = $"{_hvService.Voltage}";
             MonitorCurrent = $"{_hvService.Current}";
             StatusText = _hvService.IsOnline ? "在线" : "离线";
 
-            // 2. 同步设定值（来自配置文件）
+            DisplayValue = MonitorVoltage;
+        }
+
+        /// <summary>
+        /// 低频刷新：仅从本地文件加载设定值（仅在启动和修改配置后触发）
+        /// </summary>
+        private void LoadConfigSettings()
+        {
             var config = _configService.Load();
             SetVoltage = $"{config.LastHvVoltage}";
             SetCurrent = $"{config.LastHvCurrent}";
-
-            // 更新基类的 DisplayValue (如果通用卡片还在使用这个属性的话)
-            DisplayValue = MonitorVoltage;
         }
 
         /// <summary>
@@ -87,8 +93,8 @@ namespace GD_ControlCenter_WPF.ViewModels
             var vm = new HvSettingViewModel(_hvService,_configService,currentConfig,this.IsRunning,() =>
                        {
                            window.Close();
-                           // 重点：弹窗关闭后立即手动刷新一次 UI，确保卡片显示最新保存的值
-                           UpdateUIProperties();
+                           // 弹窗关闭后：重新读取刚保存的配置，并刷新到卡片上
+                           LoadConfigSettings();
                        }
                    );
 
@@ -120,6 +126,7 @@ namespace GD_ControlCenter_WPF.ViewModels
 
                     // 2. 注意：这里【不调用】 _hvService.Stop()
                     // 这样可以保持实时监控，界面会显示电压电流降回 0 的过程
+                    //_hvService.Stop();
                 }
             }
         }

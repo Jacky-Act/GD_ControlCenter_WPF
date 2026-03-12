@@ -43,5 +43,39 @@ namespace GD_ControlCenter_WPF
             var hvService = Services.GetRequiredService<HighVoltageService>();
             hvService.SetHighVoltage(config.LastHvVoltage, config.LastHvCurrent);
         }
+
+        /// <summary>
+        /// 应用程序退出时的生命周期钩子
+        /// </summary>
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                // 1. 从 IoC 容器中获取需要的服务
+                var hvService = Services.GetRequiredService<HighVoltageService>();
+                var generalService = Services.GetRequiredService<GeneralDeviceService>();
+                var serialService = Services.GetRequiredService<ISerialPortService>();
+
+                // 2. 下发硬件关闭指令
+                // 关闭高压电源 (电压 0，电流 0)
+                hvService.SetHighVoltage(0, 0);
+
+                // 关闭蠕动泵 (转速 0，状态 false 即停止)
+                generalService.ControlPeristalticPump(0, true, false);
+
+                // 3. 等待异步队列清空，确保指令发送完毕
+                Thread.Sleep(300);
+
+                // 4. 安全关闭串口
+                serialService.Close();
+            }
+            catch (Exception)
+            {
+            }
+            finally
+            {
+                base.OnExit(e);
+            }
+        }
     }
 }

@@ -198,15 +198,31 @@
                 </Border>
             </Grid>
 
-            <Border Grid.Column="1" Margin="2.5,0,5,5">
+            <!--<Border Grid.Column="1" Margin="2.5,0,5,5">
                 <UniformGrid Columns="1" Rows="5">
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
                             Command="{Binding ToggleSpectrometerCommand}" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
+
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding FullScreenButtonText}"
                             Command="{Binding ToggleFullScreenCommand}" />
+                </UniformGrid>
+            </Border>-->
+
+            <Border Grid.Column="1" Margin="2.5,0,5,5">
+                <UniformGrid Columns="1" Rows="6">
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
+                            Command="{Binding ToggleSpectrometerCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
+
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="自动范围" 
+                            Command="{Binding AutoRangeCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="最大范围" 
+                            Command="{Binding MaxRangeCommand}" />
                 </UniformGrid>
             </Border>
         </Grid>

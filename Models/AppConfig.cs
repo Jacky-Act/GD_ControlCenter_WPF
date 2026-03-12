@@ -83,6 +83,9 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public uint LastAveragingCount { get; set; } = 0;
 
+        public bool IsSpectrometerEnabled { get; set; } = true;
+        public bool IsAutoReigniteEnabled { get; set; } = false;
+
         // 可以在此继续添加其他设备的参数，例如：
         // public int LastPumpRpm { get; set; } = 100;
     }

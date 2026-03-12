@@ -36,7 +36,7 @@ namespace GD_ControlCenter_WPF.Services
             _pollingTimer.Elapsed += OnPollingTimerElapsed;
             _pollingTimer.AutoReset = true;
 
-            // 注册消息订阅：接收由 ProtocolService 处理好的 34 字节电池帧
+            // 注册消息订阅：接收由 ProtocolService 处理好的 13 字节电池帧
             WeakReferenceMessenger.Default.Register<BatteryFrameMessage>(this, (r, m) =>
             {
                 ParseBatteryData(m.Value);
@@ -78,12 +78,13 @@ namespace GD_ControlCenter_WPF.Services
         }
 
         /// <summary>
-        /// 通过串口发送电池查询指令
+        /// 通过串口发送电池查询指令（低优先级）
         /// </summary>
         private void SendQuery()
         {
             var cmd = ControlCommandFactory.CreateBatteryQuery();
-            _serialPortService.Send(cmd);
+            // 标记为低优先级，避免阻塞硬件控制指令
+            _serialPortService.Send(cmd, CommandPriority.Low);
         }
 
         /// <summary>

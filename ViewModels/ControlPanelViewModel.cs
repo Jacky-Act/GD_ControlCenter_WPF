@@ -20,12 +20,11 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty] private BatteryViewModel _batteryVM; // 电池
 
         // --- 布局控制 ---
+        // --- 布局控制 ---
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(FullScreenButtonText))]
         private double _dashboardHeight;    // 上方卡片区高度
         private double _originalHeight; // 初始计算高度备份
         [ObservableProperty] private double _paramHeaderHeight = 35;    // 参数栏高度
-        [ObservableProperty] private string _fullScreenButtonText = "大图显示";
         [ObservableProperty] private string _statusInfo = "系统就绪";
 
         // --- 硬件控制服务 ---
@@ -156,24 +155,6 @@ namespace GD_ControlCenter_WPF.ViewModels
         }
 
         /// <summary>
-        /// 光谱图大图/小图切换逻辑
-        /// </summary>
-        [RelayCommand]
-        private void ToggleFullScreen()
-        {
-            if (DashboardHeight > 0)
-            {
-                DashboardHeight = 0;
-                FullScreenButtonText = "还原显示";
-            }
-            else
-            {
-                DashboardHeight = _originalHeight;
-                FullScreenButtonText = "大图显示";
-            }
-        }
-
-        /// <summary>
         /// 转向阀门的切换
         /// </summary>
         partial void OnIsSteeringValveActiveChanged(bool value) => _generalDeviceService.ControlSteeringValve(value);
@@ -257,6 +238,29 @@ namespace GD_ControlCenter_WPF.ViewModels
         }
 
         /// <summary>
+        /// 自动范围调整：根据当前光谱数据的 Y 轴最高点自动缩放
+        /// </summary>
+        [RelayCommand]
+        private void AutoRange()
+        {
+            // TODO: 调用 ScottPlot 的自动缩放逻辑
+            // 例如：SpecPlot.Plot.Axes.AutoScale();
+            // SpecPlot.Refresh();
+        }
+
+        /// <summary>
+        /// 最大范围调整：恢复到全局预设的最大观察视野
+        /// </summary>
+        [RelayCommand]
+        private void MaxRange()
+        {
+            // TODO: 调用 ScottPlot 设置固定的最大坐标系范围
+            // 例如：SpecPlot.Plot.Axes.SetLimitsX(0, 1000);
+            // SpecPlot.Plot.Axes.SetLimitsY(-10, 65535);
+            // SpecPlot.Refresh();
+        }
+
+        /// <summary>
         /// 外部（如 MainWindow）初始化高度时调用
         /// </summary>
         public void SetInitialHeight(double height)
@@ -265,5 +269,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             _originalHeight = height;
             ParamHeaderHeight = Math.Max(35, height * 0.15);    // 动态设置参数栏高度
         }
+
+
     }
 }

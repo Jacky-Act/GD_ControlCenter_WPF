@@ -21,18 +21,21 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         private readonly HighVoltageService _hvService;
         private readonly JsonConfigService _configService;
+        private readonly ProtocolService _protocolService;
 
         // 容器会自动把实例化好的对象塞进这里
         public MainViewModel(
             ControlPanelViewModel controlPanelVM,
             SettingsViewModel settingsVM,
             HighVoltageService hvService,
-            JsonConfigService configService)
+            JsonConfigService configService,
+            ProtocolService protocolService)
         {
             ControlPanelVM = controlPanelVM;
             SettingsVM = settingsVM;
             _hvService = hvService;
             _configService = configService;
+            _protocolService = protocolService;
 
             CurrentPage = ControlPanelVM;
         }

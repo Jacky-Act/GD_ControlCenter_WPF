@@ -30,7 +30,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             // 初始化默认状态
             SyncStatus();
 
-            // VM 实例化时直接启动后台监控
+            // 启动后台监控
             _batteryService.Start();
         }
 

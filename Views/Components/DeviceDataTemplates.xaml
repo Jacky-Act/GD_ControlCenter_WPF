@@ -114,7 +114,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="设定距离" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
+                    <TextBlock Text="设定距离(步)" FontSize="11" Foreground="Black" HorizontalAlignment="Center"/>
                     <Viewbox MaxHeight="32" Margin="2,0">
                         <TextBlock Text="{Binding SettingDistance}" FontWeight="Bold" Foreground="{DynamicResource PurpleThemeBrush}"/>
                     </Viewbox>
