@@ -1,0 +1,201 @@
+﻿<UserControl x:Class="GD_ControlCenter_WPF.Views.Pages.FlowInjectionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+             mc:Ignorable="d"
+             d:DesignHeight="768" d:DesignWidth="1024">
+
+    <!-- 整体背景与三行布局 -->
+    <Grid Background="{DynamicResource MaterialDesignPaper}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <!-- 0: 顶部状态栏 -->
+            <RowDefinition Height="*" />
+            <!-- 1: 中部数据与图表 -->
+            <RowDefinition Height="Auto" />
+            <!-- 2: 底部控制按钮 -->
+        </Grid.RowDefinitions>
+
+        <!-- 顶部状态面板 -->
+        <materialDesign:Card Grid.Row="0" Margin="5,5,5,5" UniformCornerRadius="4"
+                             Background="{DynamicResource PrimaryHueLightBrush}" 
+                             Foreground="{DynamicResource PrimaryHueLightForegroundBrush}">
+            <TextBlock Text="{Binding CurrentSequenceStatus, FallbackValue='当前状态：等待扫描'}"
+                       Margin="16,8" FontSize="14" FontWeight="Bold"
+                       VerticalAlignment="Center"/>
+        </materialDesign:Card>
+
+        <!-- 中部主体区域 -->
+        <Grid Grid.Row="1" Margin="5,0,5,5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <!-- 多元素配置区域 -->
+                <RowDefinition Height="*"/>
+                <!-- 图表及右侧双表格区域 -->
+            </Grid.RowDefinitions>
+
+            <!-- 1. 上方多元素分析配置列表 -->
+            <materialDesign:Card Grid.Row="0" Margin="0,0,0,2.5" UniformCornerRadius="8"
+                                 materialDesign:ElevationAssist.Elevation="Dp2">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text=" 分 析 配 置 (多元素目标)" 
+                                   Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                        <Separator Margin="0,4,0,0" Style="{StaticResource MaterialDesignLightSeparator}"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding ActiveConfigs}"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                              MaxHeight="200" Margin="0,8,0,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header=" 元 素 " Binding="{Binding ElementName}" Width="*"/>
+                            <DataGridTextColumn Header=" 波 长 (nm)" Binding="{Binding Wavelength}" Width="*"/>
+                            <DataGridTextColumn Header=" 拟 合 方 程 " Binding="{Binding EquationText}" Width="1.5*"/>
+                            <DataGridTextColumn Header="R²" Binding="{Binding RSquaredText}" Width="*"/>
+                            <DataGridTextColumn Header=" 电 流 配 置 (mA)" Binding="{Binding CurrentConfigText}" Width="*"/>
+                            <DataGridTextColumn Header="转速配置 (rpm)" Binding="{Binding SpeedConfigText}" Width="*"/>
+                            <DataGridTextColumn Header=" 采 样 次 数 " Binding="{Binding SampleCountText}" Width="*"/>
+                            <DataGridTextColumn Header=" 采 样 间 隔 (s)" Binding="{Binding SampleIntervalText}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </materialDesign:Card>
+
+            <!-- 2. 下半部分：左侧时序图，右侧双表格(扫描记录 + 峰值详情) -->
+            <Grid Grid.Row="1" Margin="0,2.5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5.5*" />
+                    <!-- 左侧图表比例 -->
+                    <ColumnDefinition Width="4.5*" />
+                    <!-- 右侧表格比例 -->
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧：实时时序图 -->
+                <materialDesign:Card Grid.Column="0" Margin="0,0,2.5,0" UniformCornerRadius="8"
+                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text=" 实 时 时 序 图 " 
+                                       Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                            <Separator Margin="0,4,0,8" Style="{StaticResource MaterialDesignLightSeparator}"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="Black" CornerRadius="8">
+                            <ScottPlot:WpfPlot x:Name="RealTimePlot" />
+                        </Border>
+                    </Grid>
+                </materialDesign:Card>
+
+                <!-- 右侧：改成类似于“样品测量”的上下两个表格结构 -->
+                <Grid Grid.Column="1" Margin="2.5,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <!-- 右上表 -->
+                        <RowDefinition Height="*"/>
+                        <!-- 右下表 -->
+                    </Grid.RowDefinitions>
+
+                    <!-- 右上表：扫描次序记录 (类似“待测样品”表) -->
+                    <materialDesign:Card Grid.Row="0" Margin="0,0,0,2.5" UniformCornerRadius="8"
+                                         materialDesign:ElevationAssist.Elevation="Dp2">
+                        <Grid Margin="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0">
+                                <TextBlock Text=" 扫描次序记录 " Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                                <Separator Margin="0,4,0,0" Style="{StaticResource MaterialDesignLightSeparator}"/>
+                            </StackPanel>
+
+                            <!-- 绑定到全体扫描记录集合 (ScanRecords)，并双向绑定选中项 (SelectedScanRecord) -->
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding ScanRecords}"
+                                      SelectedItem="{Binding SelectedScanRecord, Mode=TwoWay}"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      CanUserAddRows="False" CanUserDeleteRows="False"
+                                      Margin="0,8,0,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="元素" Binding="{Binding ElementName}" Width="*"/>
+                                    <DataGridTextColumn Header="扫描次序" Binding="{Binding ScanIndex}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </materialDesign:Card>
+
+                    <!-- 右下表：选定次序的峰值分析详情 (类似“测量结果”表) -->
+                    <materialDesign:Card Grid.Row="1" Margin="0,2.5,0,0" UniformCornerRadius="8"
+                                         materialDesign:ElevationAssist.Elevation="Dp2">
+                        <Grid Margin="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text=" 峰值分析详情 " Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8" VerticalAlignment="Center"/>
+                                    <!-- 当选中某行时，标题后显示当前选中的次序 -->
+                                    <TextBlock Text="{Binding SelectedScanRecord.ScanIndex, StringFormat=' - 次序 {0}'}" 
+                                               Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8" VerticalAlignment="Center"
+                                               Visibility="{Binding SelectedScanRecord, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                </StackPanel>
+                                <Separator Margin="0,4,0,0" Style="{StaticResource MaterialDesignLightSeparator}"/>
+                            </StackPanel>
+
+                            <!-- 绑定到选中次序对应的峰值详细数据集合 (SelectedScanResults) -->
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedScanResults}"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      CanUserAddRows="False" CanUserDeleteRows="False"
+                                      Margin="0,8,0,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="背景强度" Binding="{Binding BackgroundIntensity, StringFormat={}{0:F2}}" Width="*"/>
+                                    <DataGridTextColumn Header="峰值强度" Binding="{Binding PeakIntensity, StringFormat={}{0:F2}}" Width="*">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="峰起始(s)" Binding="{Binding StartTime, StringFormat={}{0:F1}}" Width="*"/>
+                                    <DataGridTextColumn Header="峰结束(s)" Binding="{Binding EndTime, StringFormat={}{0:F1}}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </materialDesign:Card>
+
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- 底部控制按钮区域 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,15">
+            <Button Content="采集背景"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Command="{Binding CollectBackgroundCommand}"
+                    Margin="0,0,15,0"/>
+
+            <Button Content="开始连续扫描"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Command="{Binding StartScanningCommand}"
+                    Margin="0,0,15,0"/>
+
+            <Button Content="紧急停止"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Foreground="White" Background="IndianRed" BorderBrush="IndianRed"
+                    Command="{Binding StopScanningCommand}" />
+        </StackPanel>
+
+    </Grid>
+</UserControl>
