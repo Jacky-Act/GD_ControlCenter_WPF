@@ -23,6 +23,16 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         [ObservableProperty]
         private string _directionHint = "前向";
 
+        [ObservableProperty]
+        private string _pumpFlowRateK;
+
+        [ObservableProperty]
+        private string _pumpFlowRateB;
+
+        // 【新增】用于在界面实时展示的计算流速
+        [ObservableProperty]
+        private double _calculatedFlowRate;
+
         public PeristalticPumpSettingViewModel(GeneralDeviceService generalService, JsonConfigService configService, AppConfig currentConfig,
             bool isRunning, Action closeAction)
         {
@@ -33,12 +43,33 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 
             TargetSpeed = currentConfig.LastPumpSpeed;
             IsClockwise = currentConfig.IsPumpClockwise;
+            PumpFlowRateK = currentConfig.PumpFlowRateK.ToString();
+            PumpFlowRateB = currentConfig.PumpFlowRateB.ToString(); 
+
+            // 【新增】窗口打开时，进行一次初始计算
+            UpdateCalculatedFlowRate();
+
             UpdateDirectionHint(IsClockwise);
         }
 
         partial void OnIsClockwiseChanged(bool value) => UpdateDirectionHint(value);
 
         private void UpdateDirectionHint(bool value) => DirectionHint = value ? "前向" : "后向";
+
+        // 【新增】利用 MVVM Toolkit 拦截器，当转速、K 或 B 任意一个发生变化时，立刻触发重新计算
+        partial void OnTargetSpeedChanged(int value) => UpdateCalculatedFlowRate();
+        partial void OnPumpFlowRateKChanged(string value) => UpdateCalculatedFlowRate();
+        partial void OnPumpFlowRateBChanged(string value) => UpdateCalculatedFlowRate();
+
+        // 【新增】核心计算逻辑
+        private void UpdateCalculatedFlowRate()
+        {
+            // 尝试解析字符串，如果用户输入为空或非法字符，默认当作 0 处理，防止程序崩溃
+            double k = double.TryParse(PumpFlowRateK, out double parsedK) ? parsedK : 0;
+            double b = double.TryParse(PumpFlowRateB, out double parsedB) ? parsedB : 0;
+
+            CalculatedFlowRate = Math.Round(k * TargetSpeed + b, 2);
+        }
 
         [RelayCommand]
         private void Apply()
@@ -55,6 +86,9 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             var config = _configService.Load();
             config.LastPumpSpeed = TargetSpeed;
             config.IsPumpClockwise = IsClockwise;
+            // 【修改】保存时将字符串转换为 double 写入配置
+            config.PumpFlowRateK = double.TryParse(PumpFlowRateK, out double finalK) ? finalK : 1.0;
+            config.PumpFlowRateB = double.TryParse(PumpFlowRateB, out double finalB) ? finalB : 0.0;
             _configService.Save(config);
 
             // 如果正在运行，直接下发硬件指令，保持启动状态 (true)

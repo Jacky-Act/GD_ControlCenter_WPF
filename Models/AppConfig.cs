@@ -38,6 +38,10 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public bool IsPumpClockwise { get; set; } = true;
 
+        // 【新增】流速标定参数
+        public double PumpFlowRateK { get; set; } = 1.0; // 流速方程斜率 K
+        public double PumpFlowRateB { get; set; } = 0.0; // 流速方程截距 B
+
         // --- 注射泵设置参数 ---
 
         /// <summary>

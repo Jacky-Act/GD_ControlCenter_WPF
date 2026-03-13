@@ -115,23 +115,42 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
             }
         }
 
+        // --- 公开方法 ---
+
+        /// <summary>
+        /// 物理断开所有已连接的光谱仪硬件，并释放底层 USB 资源。
+        /// </summary>
+        public void DisconnectAll()
+        {
+            // 1. 停止当前正在进行的所有采集任务
+            StopAll();
+
+            // 2. 逐一释放每个设备的底层 USB 句柄
+            foreach (var device in Devices)
+            {
+                device.DataReady -= OnDeviceDataReady;
+                device.Dispose(); // 内部会调用 AVS_Deactivate(handle)
+            }
+
+            // 3. 彻底释放 SDK 占用的整个 USB 总线资源
+            if (_isInitialized)
+            {
+                AvantesSdk.AVS_Done();
+                _isInitialized = false; // 【关键】置为 false，确保下次启用时能重新执行 AVS_Init
+            }
+
+            // 4. 清空设备列表与缓存
+            Devices.Clear();
+            _latestDataCache.Clear();
+        }
+
         /// <summary>
         /// 释放所有托管与非托管资源，安全断开硬件并清空缓存。
         /// </summary>
         public void Dispose()
         {
-            StopAll();
-            foreach (var device in Devices)
-            {
-                device.DataReady -= OnDeviceDataReady; // 解绑防泄漏
-                device.Dispose();
-            }
-            if (_isInitialized)
-            {
-                AvantesSdk.AVS_Done();
-            }
-            Devices.Clear();
-            _latestDataCache.Clear();
+            // 原有的 Dispose 逻辑可以直接复用 DisconnectAll，保持代码 DRY
+            DisconnectAll();
         }
 
         // --- 私有辅助方法 ---

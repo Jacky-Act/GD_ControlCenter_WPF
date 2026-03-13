@@ -1,6 +1,10 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
+using GD_ControlCenter_WPF.Services.Spectrometer;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
@@ -50,7 +54,28 @@ namespace GD_ControlCenter_WPF.ViewModels
             config.IsSpectrometerEnabled = value;
             _configService.Save(config);
 
-            // TODO: 如果你希望点这个开关立马断开/连接光谱仪硬件，可以在这里调用 SpectrometerManager
+            if (value)
+            {
+                _ = SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
+            }
+            else
+            {
+                // 断开：【修改这里】将其丢入后台线程池执行，解放 UI 线程
+                _ = Task.Run(() =>
+                {
+                    SpectrometerManager.Instance.DisconnectAll();
+                });
+            }
+
+            // 构造特殊标识的 Config 用于全局消息传递
+            var globalStatusConfig = new SpectrometerConfig
+            {
+                SerialNumber = "GLOBAL_SWITCH", // 特殊标识，用于区分单机报警
+                IsConnected = value
+            };
+
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(
+                new SpectrometerStatusMessage(globalStatusConfig));
         }
 
         // 拦截开关改变事件：当拨动自动点火开关时触发

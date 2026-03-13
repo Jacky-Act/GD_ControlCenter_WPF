@@ -1,10 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using System.Collections.ObjectModel;
 using System.Timers;
+using GD_ControlCenter_WPF.Models.Messages; // 确保能识别 SpectrometerStatusMessage
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -74,6 +77,36 @@ namespace GD_ControlCenter_WPF.ViewModels
             Devices.Add(highVoltageVM);
             Devices.Add(peristalticPumpVM);
             Devices.Add(syringePumpVM);
+
+            // 监听光谱仪状态变更消息
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Register<SpectrometerStatusMessage>(this, (r, m) =>
+            {
+                var incomingConfig = m.Value;
+
+                // 识别出这是来自设置页面的全局通断指令
+                if (incomingConfig.SerialNumber == "GLOBAL_SWITCH")
+                {
+                    bool isEnabled = incomingConfig.IsConnected;
+
+                    if (!isEnabled)
+                    {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            SpecVM.IsCurrentlyMeasuring = false;
+                            SpecVM.Model.IsConnected = false;
+                            SpecVM.Model.SerialNumber = "已断开连接";
+                            SpecVM.UpdateFromModel();
+                            StatusInfo = "光谱仪硬件已被全局禁用";
+                            _isToggling = false; // 释放锁
+                        });
+                    }
+                }
+                else
+                {
+                    // 预留：处理物理设备发出的真实饱和/掉线报警
+                    // if (incomingConfig.IsSaturationDetectionEnabled) { ... }
+                }
+            });
         }
 
         // --- 交互命令 ---
@@ -84,6 +117,14 @@ namespace GD_ControlCenter_WPF.ViewModels
         [RelayCommand]
         private async Task ToggleSpectrometer()
         {
+            // 新增防呆：如果设置里禁用了硬件，直接不让点
+            var config = _jsonConfigService.Load();
+            if (!config.IsSpectrometerEnabled)
+            {
+                StatusInfo = "请先在设置中启用光谱仪连接";
+                return;
+            }
+
             if (_isToggling) return; // 防止快速连点死锁
             _isToggling = true;
 

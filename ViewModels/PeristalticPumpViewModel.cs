@@ -18,6 +18,10 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty]
         private string _directionText = "前向";
 
+        // 【新增】暴露给外部（如拟合曲线采样时）获取的实时流速
+        [ObservableProperty]
+        private double _currentFlowRate;
+
         public PeristalticPumpViewModel(GeneralDeviceService generalService, JsonConfigService configService)
         {
             _generalService = generalService;
@@ -37,6 +41,9 @@ namespace GD_ControlCenter_WPF.ViewModels
             var config = _configService.Load();
             SettingSpeed = $"{config.LastPumpSpeed}";
             DirectionText = config.IsPumpClockwise ? "后向" : "前向";
+
+            // 【新增】根据最新配置计算流速：流速 = K * 转速 + B (保留2位小数)
+            CurrentFlowRate = Math.Round(config.PumpFlowRateK * config.LastPumpSpeed + config.PumpFlowRateB, 2);
         }
 
         /// <summary>

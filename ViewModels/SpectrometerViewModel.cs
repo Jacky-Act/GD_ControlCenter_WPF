@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services.Spectrometer;
+using System.Windows.Threading;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -55,7 +56,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             {
                 // 校验消息是否属于当前设备 
                 if (m.Value.SourceDeviceSerial == this.SerialNumber)
-                {                   
+                {
                     RequestPlotUpdate?.Invoke(m.Value); // 触发绘图更新事件
                 }
             });
