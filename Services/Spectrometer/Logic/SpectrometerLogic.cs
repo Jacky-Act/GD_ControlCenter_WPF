@@ -19,20 +19,65 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
         /// </summary>
         /// <param name="dataCollection">包含多台光谱仪原始数据的集合。</param>
         /// <returns>返回拼接完成的完整全谱数据实体。若传入数据为空或少于两台，则返回 null。</returns>
+        //public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection)
+        //{
+        //    if (dataCollection == null || dataCollection.Count() < 2) return null;
+
+        //    // 将所有缓存的数据合并到一个列表中，并按波长升序排列
+        //    var allPoints = dataCollection
+        //        .SelectMany(d => d.Wavelengths.Zip(d.Intensities, (w, i) => new { W = w, I = i }))
+        //        .OrderBy(p => p.W)
+        //        .ToList();
+
+        //    var stitchedWavelengths = allPoints.Select(p => p.W).ToArray();
+        //    var stitchedIntensities = allPoints.Select(p => p.I).ToArray();
+
+        //    // 生成全谱数据实体，设定统一的系统虚拟标识
+        //    return new SpectralData(stitchedWavelengths, stitchedIntensities, "Combined_System");
+        //}
+
+        /// <summary>
+        /// 多设备光谱拼接算法 (高性能版，解决 GC 卡顿问题)
+        /// </summary>
         public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection)
         {
-            if (dataCollection == null || dataCollection.Count() < 2) return null;
+            if (dataCollection == null) return null;
 
-            // 将所有缓存的数据合并到一个列表中，并按波长升序排列
-            var allPoints = dataCollection
-                .SelectMany(d => d.Wavelengths.Zip(d.Intensities, (w, i) => new { W = w, I = i }))
-                .OrderBy(p => p.W)
-                .ToList();
+            // 1. 遍历获取总像素长度，避免动态列表扩容
+            int totalLength = 0;
+            int count = 0;
+            foreach (var data in dataCollection)
+            {
+                if (data.Wavelengths != null)
+                {
+                    totalLength += data.Wavelengths.Length;
+                }
+                count++;
+            }
 
-            var stitchedWavelengths = allPoints.Select(p => p.W).ToArray();
-            var stitchedIntensities = allPoints.Select(p => p.I).ToArray();
+            if (count < 2 || totalLength == 0) return null;
 
-            // 生成全谱数据实体，设定统一的系统虚拟标识
+            // 2. 仅分配必须的结果数组，消灭所有 LINQ 产生的中间匿名对象
+            double[] stitchedWavelengths = new double[totalLength];
+            double[] stitchedIntensities = new double[totalLength];
+
+            // 3. 使用底层内存拷贝将多机数据打平到一个数组中 (极速)
+            int currentOffset = 0;
+            foreach (var data in dataCollection)
+            {
+                if (data.Wavelengths != null && data.Intensities != null)
+                {
+                    int len = Math.Min(data.Wavelengths.Length, data.Intensities.Length);
+                    Array.Copy(data.Wavelengths, 0, stitchedWavelengths, currentOffset, len);
+                    Array.Copy(data.Intensities, 0, stitchedIntensities, currentOffset, len);
+                    currentOffset += len;
+                }
+            }
+
+            // 4. 双数组同步原位排序 (零内存分配)
+            // 该方法以 Wavelengths 为 Key 进行升序排序，并自动同步交换 Intensities 中的元素位置
+            Array.Sort(stitchedWavelengths, stitchedIntensities);
+
             return new SpectralData(stitchedWavelengths, stitchedIntensities, "Combined_System");
         }
 

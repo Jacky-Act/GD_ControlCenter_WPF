@@ -6,8 +6,8 @@ using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using System.Collections.ObjectModel;
-using System.Timers;
-using GD_ControlCenter_WPF.Models.Messages; // 确保能识别 SpectrometerStatusMessage
+using GD_ControlCenter_WPF.ViewModels.Dialogs;
+
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
@@ -231,6 +231,25 @@ namespace GD_ControlCenter_WPF.ViewModels
             window.Owner = System.Windows.Application.Current.MainWindow;
 
             // 6. 以模态对话框形式打开
+            window.ShowDialog();
+        }
+
+        [RelayCommand]
+        private void OpenPlatform3DWindow()
+        {
+            // 1. 实例化窗口对象
+            var window = new GD_ControlCenter_WPF.Views.Dialogs.Platform3DWindow();
+
+            // 2. 实例化 ViewModel (手动注入关闭回调)
+            var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.Platform3DViewModel(() => window.Close());
+
+            // 3. 绑定 DataContext
+            window.DataContext = vm;
+
+            // 4. 指定 Owner 居中
+            window.Owner = System.Windows.Application.Current.MainWindow;
+
+            // 5. 弹出
             window.ShowDialog();
         }
 

@@ -127,16 +127,16 @@
                 </materialDesign:Card>
 
                 <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8"
-                                     materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Button Command="{Binding Devices[3].OpenDetailCommand}"
+                     materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Button Command="{Binding OpenPlatform3DWindowCommand}"
                             Style="{StaticResource MaterialDesignFlatButton}"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             Height="Auto" Padding="0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                             <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" 
-                                       Foreground="Black"/>
+                                     Foreground="Black"/>
                             <TextBlock Text="三维平台" FontSize="20" FontWeight="Bold" 
-                                       Foreground="Black"/>
+                       Foreground="Black"/>
                         </StackPanel>
                     </Button>
                 </materialDesign:Card>
@@ -198,18 +198,6 @@
                 </Border>
             </Grid>
 
-            <!--<Border Grid.Column="1" Margin="2.5,0,5,5">
-                <UniformGrid Columns="1" Rows="5">
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
-                            Command="{Binding ToggleSpectrometerCommand}" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
-
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding FullScreenButtonText}"
-                            Command="{Binding ToggleFullScreenCommand}" />
-                </UniformGrid>
-            </Border>-->
 
             <Border Grid.Column="1" Margin="2.5,0,5,5">
                 <UniformGrid Columns="1" Rows="6">
