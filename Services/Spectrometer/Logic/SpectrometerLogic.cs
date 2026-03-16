@@ -1,7 +1,4 @@
 ﻿using GD_ControlCenter_WPF.Models.Spectrometer;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
 {
@@ -12,73 +9,113 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
     /// </summary>
     public static class SpectrometerLogic
     {
-        // --- 公开核心算法方法 ---
+        // =========================================================
+        // 全局静态缓存区（避免高频采集时产生海量 GC 垃圾）
+        // 假设单台 4096 像素，默认分配 16384 支持 4 台同时拼接
+        // =========================================================
+        private static int _maxBufferSize = 16384;
+        private static double[] _bufferWavelengths = new double[_maxBufferSize];
+        private static double[] _bufferIntensities = new double[_maxBufferSize];
+        private static int[] _bufferCounts = new int[_maxBufferSize]; // 用于记录重合点数量以计算平均值
+        private static readonly object _stitchLock = new object();    // 确保高频并发调用的线程安全
 
         /// <summary>
-        /// 多设备光谱拼接算法：对传入的多台设备的数据进行排序、合并，并生成全谱数据。
+        /// 多设备光谱拼接算法 (极致性能版)
+        /// 特性1：使用全局静态内存池，过程零分配。
+        /// 特性2：对重叠波长区域的数据自动取平均值。
         /// </summary>
         /// <param name="dataCollection">包含多台光谱仪原始数据的集合。</param>
-        /// <returns>返回拼接完成的完整全谱数据实体。若传入数据为空或少于两台，则返回 null。</returns>
-        //public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection)
-        //{
-        //    if (dataCollection == null || dataCollection.Count() < 2) return null;
-
-        //    // 将所有缓存的数据合并到一个列表中，并按波长升序排列
-        //    var allPoints = dataCollection
-        //        .SelectMany(d => d.Wavelengths.Zip(d.Intensities, (w, i) => new { W = w, I = i }))
-        //        .OrderBy(p => p.W)
-        //        .ToList();
-
-        //    var stitchedWavelengths = allPoints.Select(p => p.W).ToArray();
-        //    var stitchedIntensities = allPoints.Select(p => p.I).ToArray();
-
-        //    // 生成全谱数据实体，设定统一的系统虚拟标识
-        //    return new SpectralData(stitchedWavelengths, stitchedIntensities, "Combined_System");
-        //}
-
-        /// <summary>
-        /// 多设备光谱拼接算法 (高性能版，解决 GC 卡顿问题)
-        /// </summary>
-        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection)
+        /// <param name="mergeTolerance">重合容差(nm)，两点波长差异小于此值将被视为重合点并取平均强度。默认0.2nm</param>
+        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection, double mergeTolerance = 0.2)
         {
             if (dataCollection == null) return null;
 
-            // 1. 遍历获取总像素长度，避免动态列表扩容
-            int totalLength = 0;
-            int count = 0;
-            foreach (var data in dataCollection)
+            // 加锁防止多线程数据错乱
+            lock (_stitchLock)
             {
-                if (data.Wavelengths != null)
+                int totalLength = 0;
+                int count = 0;
+
+                foreach (var data in dataCollection)
                 {
-                    totalLength += data.Wavelengths.Length;
+                    if (data.Wavelengths != null)
+                        totalLength += data.Wavelengths.Length;
+                    count++;
                 }
-                count++;
-            }
 
-            if (count < 2 || totalLength == 0) return null;
+                if (count < 2 || totalLength == 0) return null;
 
-            // 2. 仅分配必须的结果数组，消灭所有 LINQ 产生的中间匿名对象
-            double[] stitchedWavelengths = new double[totalLength];
-            double[] stitchedIntensities = new double[totalLength];
-
-            // 3. 使用底层内存拷贝将多机数据打平到一个数组中 (极速)
-            int currentOffset = 0;
-            foreach (var data in dataCollection)
-            {
-                if (data.Wavelengths != null && data.Intensities != null)
+                // 动态扩容机制（以防将来接入更多设备超出默认缓存池）
+                if (totalLength > _bufferWavelengths.Length)
                 {
-                    int len = Math.Min(data.Wavelengths.Length, data.Intensities.Length);
-                    Array.Copy(data.Wavelengths, 0, stitchedWavelengths, currentOffset, len);
-                    Array.Copy(data.Intensities, 0, stitchedIntensities, currentOffset, len);
-                    currentOffset += len;
+                    _maxBufferSize = totalLength * 2;
+                    _bufferWavelengths = new double[_maxBufferSize];
+                    _bufferIntensities = new double[_maxBufferSize];
+                    _bufferCounts = new int[_maxBufferSize];
                 }
+
+                // 1. 数据打平：直接内存拷贝到全局缓存 (极速)
+                int currentOffset = 0;
+                foreach (var data in dataCollection)
+                {
+                    if (data.Wavelengths != null && data.Intensities != null)
+                    {
+                        int len = Math.Min(data.Wavelengths.Length, data.Intensities.Length);
+                        Array.Copy(data.Wavelengths, 0, _bufferWavelengths, currentOffset, len);
+                        Array.Copy(data.Intensities, 0, _bufferIntensities, currentOffset, len);
+                        currentOffset += len;
+                    }
+                }
+
+                // 2. 原位排序：按波长升序，且强度数组同步交换 (零内存分配)
+                Array.Sort(_bufferWavelengths, _bufferIntensities, 0, totalLength);
+
+                // 3. 重合区间求均值 (双指针原地合并算法)
+                int validCount = 0; // 合并后的有效索引
+                _bufferCounts[0] = 1;
+
+                for (int i = 1; i < totalLength; i++)
+                {
+                    // 判断当前波长是否与上一个波长 "重合" (差距在容差范围内)
+                    if (Math.Abs(_bufferWavelengths[i] - _bufferWavelengths[validCount]) <= mergeTolerance)
+                    {
+                        // 累加强度和重合次数
+                        _bufferIntensities[validCount] += _bufferIntensities[i];
+                        _bufferCounts[validCount]++;
+                    }
+                    else
+                    {
+                        // 结算上一个重合点的最终平均值
+                        if (_bufferCounts[validCount] > 1)
+                        {
+                            _bufferIntensities[validCount] /= _bufferCounts[validCount];
+                        }
+
+                        // 移动到下一个新点
+                        validCount++;
+                        _bufferWavelengths[validCount] = _bufferWavelengths[i];
+                        _bufferIntensities[validCount] = _bufferIntensities[i];
+                        _bufferCounts[validCount] = 1; // 重置计数
+                    }
+                }
+
+                // 结算循环结束后的最后一个点的平均值
+                if (_bufferCounts[validCount] > 1)
+                {
+                    _bufferIntensities[validCount] /= _bufferCounts[validCount];
+                }
+
+                int finalLength = validCount + 1;
+
+                // 4. 拷贝出结果
+                // 这里是整个算法唯一一次 new 内存（必须生成干净的结果给 UI 显示）
+                double[] finalW = new double[finalLength];
+                double[] finalI = new double[finalLength];
+                Array.Copy(_bufferWavelengths, 0, finalW, 0, finalLength);
+                Array.Copy(_bufferIntensities, 0, finalI, 0, finalLength);
+
+                return new SpectralData(finalW, finalI, "Combined_System");
             }
-
-            // 4. 双数组同步原位排序 (零内存分配)
-            // 该方法以 Wavelengths 为 Key 进行升序排序，并自动同步交换 Intensities 中的元素位置
-            Array.Sort(stitchedWavelengths, stitchedIntensities);
-
-            return new SpectralData(stitchedWavelengths, stitchedIntensities, "Combined_System");
         }
 
         /// <summary>
