@@ -110,7 +110,36 @@ namespace GD_ControlCenter_WPF.Services
         /// </summary>
         /// <param name="frame">接收到的 13 字节标准完整帧。</param>
         /// 
-            
+        //private void ParseResponse(byte[] frame)
+        //{
+        //    // 判定功能码是否为 0x66 (ReturnPowerInfo) 
+        //    if (frame.Length == 13 && (FunctionCode)frame[3] == FunctionCode.ReturnPowerInfo)
+        //    {
+        //        try
+        //        {
+        //            // 回传电压计算 (计算后四舍五入并转为整数)
+        //            double rawVoltage = frame[7] + (frame[6] & 0x7f) * 256.0;
+        //            Voltage = (int)Math.Round(rawVoltage / 32768.0 * 2.048 * 5.25 * 150.0);
+
+        //            // 回传电流计算 (计算后四舍五入并转为整数)
+        //            double rawCurrent = frame[9] + (frame[8] & 0x7f) * 256.0;
+        //            Current = (int)Math.Round(rawCurrent / 32768.0 * 2.048 * 5.25 * 10.0);
+
+        //            IsOnline = true;
+        //            _lastReceivedTime = DateTime.Now;
+
+        //            // 触发属性变更通知，唤醒 ViewModel 更新 UI
+        //            OnPropertyChanged(nameof(Voltage));
+        //            OnPropertyChanged(nameof(Current));
+        //            OnPropertyChanged(nameof(IsOnline));
+        //        }
+        //        catch (Exception)
+        //        {
+        //            // 异常处理逻辑
+        //        }
+        //    }
+        //}
+
         private void ParseResponse(byte[] frame)
         {
             // 判定功能码是否为 0x66 (ReturnPowerInfo) 
@@ -118,14 +147,41 @@ namespace GD_ControlCenter_WPF.Services
             {
                 try
                 {
-                    // 回传电压计算 (计算后四舍五入并转为整数)
+                    // -------------------- 1. 电压计算 --------------------
+                    // 提取机器反馈的原始值 (保持你原有的字节拼接逻辑)
                     double rawVoltage = frame[7] + (frame[6] & 0x7f) * 256.0;
-                    Voltage = (int)Math.Round(rawVoltage / 32768.0 * 2.048 * 5.25 * 150.0);
 
-                    // 回传电流计算 (计算后四舍五入并转为整数)
+                    // 应用拟合公式: 实际电压 = -4.49957 + 0.04929 * 机器反馈值
+                    double realVoltage = -4.49957 + (0.04929 * rawVoltage);
+
+                    // 边界保护: 防止反馈过低(小于约91)导致算出负数电压
+                    if (realVoltage < 0) realVoltage = 0;
+
+                    // 赋值给属性 (四舍五入并转为整数，保持与你原代码一致)
+                    Voltage = (int)Math.Round(realVoltage);
+
+                    // -------------------- 2. 电流计算 --------------------
+                    // 提取机器反馈的原始值
                     double rawCurrent = frame[9] + (frame[8] & 0x7f) * 256.0;
-                    Current = (int)Math.Round(rawCurrent / 32768.0 * 2.048 * 5.25 * 10.0);
 
+                    double realCurrent = 0;
+
+                    // 异常/开路保护: 正常反馈值不应接近满载(32768)
+                    // 32000 对应的理论电流超过 100A，通常代表电路未连接或硬件异常
+                    if (rawCurrent < 32000)
+                    {
+                        // 应用拟合公式: 实际电流 = 3.01216 + 0.00309 * 机器反馈值
+                        realCurrent = 3.01216 + (0.00309 * rawCurrent);
+
+                        // 底部死区保护: 防止机器待机时，因截距(3A)导致UI显示有电流
+                        // (此处阈值设为 3.5A，算出来低于此值的当作底噪归零)
+                        if (realCurrent < 3.5) realCurrent = 0;
+                    }
+
+                    // 赋值给属性
+                    Current = (int)Math.Round(realCurrent);
+
+                    // -------------------- 3. 状态更新 --------------------
                     IsOnline = true;
                     _lastReceivedTime = DateTime.Now;
 
@@ -140,6 +196,50 @@ namespace GD_ControlCenter_WPF.Services
                 }
             }
         }
+
+        //private void ParseResponse(byte[] frame)
+        //{
+        //    // 1. 打印完整的原始报文（十六进制形式，例如：01-03-0A-66-...）
+        //    string rawHexStr = BitConverter.ToString(frame);
+        //    System.Diagnostics.Debug.WriteLine($"[接收原始报文]: {rawHexStr}");
+
+        //    // 判定功能码是否为 0x66 (ReturnPowerInfo) 
+        //    if (frame.Length == 13 && (FunctionCode)frame[3] == FunctionCode.ReturnPowerInfo)
+        //    {
+        //        try
+        //        {
+        //            // --- 电压部分 ---
+        //            double rawVoltage = frame[7] + (frame[6] & 0x7f) * 256.0;
+        //            Voltage = (int)Math.Round(rawVoltage / 32768.0 * 2.048 * 5.25 * 150.0);
+
+        //            // 打印电压的原始合并值与最终换算值
+        //            System.Diagnostics.Debug.WriteLine($"[电压解析] Raw值: {rawVoltage} -> 实际值: {Voltage}");
+
+        //            // --- 电流部分 ---
+        //            double rawCurrent = frame[9] + (frame[8] & 0x7f) * 256.0;
+        //            Current = (int)Math.Round(rawCurrent / 32768.0 * 2.048 * 5.25 * 10.0);
+
+        //            // 打印电流的原始合并值与最终换算值
+        //            System.Diagnostics.Debug.WriteLine($"[电流解析] Raw值: {rawCurrent} -> 实际值: {Current}");
+
+        //            IsOnline = true;
+        //            _lastReceivedTime = DateTime.Now;
+
+        //            // 触发属性变更通知，唤醒 ViewModel 更新 UI
+        //            OnPropertyChanged(nameof(Voltage));
+        //            OnPropertyChanged(nameof(Current));
+        //            OnPropertyChanged(nameof(IsOnline));
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            System.Diagnostics.Debug.WriteLine($"[解析异常]: {ex.Message}");
+        //        }
+        //    }
+        //    else
+        //    {
+        //        System.Diagnostics.Debug.WriteLine($"[无效报文] 长度: {frame.Length}, 功能码: 0x{frame[3]:X2}");
+        //    }
+        //}
 
         public void Dispose()
         {
