@@ -1,12 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
-using System.Collections.ObjectModel;
 using GD_ControlCenter_WPF.ViewModels.Dialogs;
+using System.Collections.ObjectModel;
 
 
 namespace GD_ControlCenter_WPF.ViewModels
@@ -23,7 +23,6 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty] private BatteryViewModel _batteryVM; // 电池
 
         // --- 布局控制 ---
-        // --- 布局控制 ---
         [ObservableProperty]
         private double _dashboardHeight;    // 上方卡片区高度
         private double _originalHeight; // 初始计算高度备份
@@ -34,30 +33,42 @@ namespace GD_ControlCenter_WPF.ViewModels
         private readonly GeneralDeviceService _generalDeviceService;
         private readonly JsonConfigService _jsonConfigService;
 
-        // 3. 定义转向阀状态属性
-        [ObservableProperty]
-        private bool _isSteeringValveActive;
+        // --- 阀门与防连点锁 ---
+        [ObservableProperty] private bool _isSteeringValveActive;
+        private bool _isToggling = false;
 
-        private bool _isToggling = false; // 防连点锁
+        // --- 自动打火状态追踪 ---
+        private readonly HighVoltageViewModel _hvVM;
+        private readonly PeristalticPumpViewModel _pumpVM;
+        private bool _isPlasmaStable = false;
+        private int _reigniteAttemptCount = 0;
+        private const int MaxReigniteAttempts = 3;  // 最大尝试次数
+        private bool _isReigniting = false;         // 防止打火序列重入锁
 
-        // 修改点：通过构造函数直接注入所有的子 ViewModel，不再手动 new
         public ControlPanelViewModel(
-            GeneralDeviceService generalDeviceService,
-            JsonConfigService jsonConfigService,
-            BatteryViewModel batteryVM,
-            HighVoltageViewModel highVoltageVM,
-            PeristalticPumpViewModel peristalticPumpVM,
-            SyringePumpViewModel syringePumpVM)
+                    GeneralDeviceService generalDeviceService,
+                    JsonConfigService jsonConfigService,
+                    BatteryViewModel batteryVM,
+                    HighVoltageViewModel highVoltageVM,
+                    PeristalticPumpViewModel peristalticPumpVM,
+                    SyringePumpViewModel syringePumpVM)
         {
             _generalDeviceService = generalDeviceService;
             _jsonConfigService = jsonConfigService;
             _batteryVM = batteryVM;
 
+            // 1. 保存硬件 VM 实例
+            _hvVM = highVoltageVM;
+            _pumpVM = peristalticPumpVM;
+
+            // 2. 订阅硬件状态变化，用于自动打火监控
+            _hvVM.PropertyChanged += OnHardwareStateChanged;
+            _pumpVM.PropertyChanged += OnHardwareStateChanged;
+
             // --- 读取本地配置 ---
             var appConfig = _jsonConfigService.Load();
             var specConfig = new SpectrometerConfig();
 
-            // 如果配置值大于 0，则使用配置值；否则保留 SpectrometerConfig 中的默认值
             if (appConfig.LastIntegrationTime > 0) specConfig.IntegrationTimeMs = appConfig.LastIntegrationTime;
             if (appConfig.LastAveragingCount > 0) specConfig.AveragingCount = appConfig.LastAveragingCount;
 
@@ -79,7 +90,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             Devices.Add(syringePumpVM);
 
             // 监听光谱仪状态变更消息
-            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Register<SpectrometerStatusMessage>(this, (r, m) =>
+            WeakReferenceMessenger.Default.Register<SpectrometerStatusMessage>(this, (r, m) =>
             {
                 var incomingConfig = m.Value;
 
@@ -100,11 +111,6 @@ namespace GD_ControlCenter_WPF.ViewModels
                             _isToggling = false; // 释放锁
                         });
                     }
-                }
-                else
-                {
-                    // 预留：处理物理设备发出的真实饱和/掉线报警
-                    // if (incomingConfig.IsSaturationDetectionEnabled) { ... }
                 }
             });
         }
@@ -303,9 +309,8 @@ namespace GD_ControlCenter_WPF.ViewModels
         [RelayCommand]
         private void AutoRange()
         {
-            // TODO: 调用 ScottPlot 的自动缩放逻辑
-            // 例如：SpecPlot.Plot.Axes.AutoScale();
-            // SpecPlot.Refresh();
+            // 发送自动缩放请求消息
+            WeakReferenceMessenger.Default.Send(new AutoRangeRequestMessage());
         }
 
         /// <summary>
@@ -314,10 +319,7 @@ namespace GD_ControlCenter_WPF.ViewModels
         [RelayCommand]
         private void MaxRange()
         {
-            // TODO: 调用 ScottPlot 设置固定的最大坐标系范围
-            // 例如：SpecPlot.Plot.Axes.SetLimitsX(0, 1000);
-            // SpecPlot.Plot.Axes.SetLimitsY(-10, 65535);
-            // SpecPlot.Refresh();
+            WeakReferenceMessenger.Default.Send(new MaxRangeRequestMessage());
         }
 
         /// <summary>
@@ -330,6 +332,113 @@ namespace GD_ControlCenter_WPF.ViewModels
             ParamHeaderHeight = Math.Max(35, height * 0.15);    // 动态设置参数栏高度
         }
 
+        // --- 自动点火与状态机逻辑 ---
 
+        /// <summary>
+        /// 硬件属性变更回调：监听高压电源电流及启停状态
+        /// </summary>
+        private void OnHardwareStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(HighVoltageViewModel.MonitorCurrent) ||
+                e.PropertyName == nameof(HighVoltageViewModel.IsRunning) ||
+                e.PropertyName == nameof(PeristalticPumpViewModel.IsRunning))
+            {
+                CheckPlasmaState();
+            }
+        }
+
+        /// <summary>
+        /// 判定等离子体状态及是否意外熄火
+        /// </summary>
+        private void CheckPlasmaState()
+        {
+            // 防呆：如果任何一个硬件被手动关闭，立即重置状态并终止打火逻辑
+            if (!_hvVM.IsRunning || !_pumpVM.IsRunning)
+            {
+                _isPlasmaStable = false;
+                _reigniteAttemptCount = 0;
+                return;
+            }
+
+            // 解析当前电流
+            if (double.TryParse(_hvVM.MonitorCurrent, out double current))
+            {
+                // 阈值设定：假设电流 > 5.0mA 视为成功点燃并稳定 (可根据实际情况调整)
+                if (current > 5.0)
+                {
+                    if (!_isPlasmaStable)
+                    {
+                        _isPlasmaStable = true;
+                        _reigniteAttemptCount = 0; // 稳定后重置尝试次数
+                        _isReigniting = false;
+                        StatusInfo = "等离子体已稳定运行";
+                    }
+                }
+                // 意外熄火判定：原本稳定 -> 突然跌落至 0 附近 (如 <= 1.0mA) -> 且不在重试打火过程中
+                else if (current <= 1.0 && _isPlasmaStable && !_isReigniting)
+                {
+                    _isPlasmaStable = false;
+                    _ = HandleUnexpectedExtinctionAsync(); // 触发异步重试序列
+                }
+            }
+        }
+
+        /// <summary>
+        /// 异步执行自动打火序列
+        /// </summary>
+        private async Task HandleUnexpectedExtinctionAsync()
+        {
+            _isReigniting = true;
+
+            // 检查配置是否允许自动打火
+            var config = _jsonConfigService.Load();
+            if (!config.IsAutoReigniteEnabled)
+            {
+                StatusInfo = "意外熄火 (未开启自动点火)";
+                _isReigniting = false;
+                return;
+            }
+
+            while (_reigniteAttemptCount < MaxReigniteAttempts)
+            {
+                _reigniteAttemptCount++;
+                StatusInfo = $"意外熄火，准备尝试第 {_reigniteAttemptCount} 次自动点火...";
+
+                // 缓冲延时：给蠕动泵进液/吹扫预留 2 秒时间
+                await Task.Delay(2000);
+
+                // 在延时期间，检查用户是否手动关机了，如果关机则直接中断
+                if (!_hvVM.IsRunning || !_pumpVM.IsRunning)
+                {
+                    StatusInfo = "自动点火已取消 (硬件已手动关闭)";
+                    _isReigniting = false;
+                    return;
+                }
+
+                StatusInfo = $"正在执行第 {_reigniteAttemptCount} 次自动点火...";
+
+                // 发送点火指令
+                _generalDeviceService.Fire();
+
+                // 等待点火后的电流攀升时间（此处假设给 3 秒反应时间）
+                await Task.Delay(3000);
+
+                // 再次检查电流判断是否点火成功
+                if (double.TryParse(_hvVM.MonitorCurrent, out double current) && current > 5.0)
+                {
+                    // 点燃成功，退出循环，后续将交由 CheckPlasmaState 轮询接管变回 Stable 状态
+                    _isReigniting = false;
+                    return;
+                }
+            }
+
+            // 如果走出了 while 循环，说明尝试达到最大次数依然失败
+            StatusInfo = "多次自动点火失败，为保障安全已切断输出";
+
+            // 安全切断硬件
+            _hvVM.IsRunning = false;
+            _pumpVM.IsRunning = false;
+            _isReigniting = false;
+        }
     }
 }

@@ -197,50 +197,6 @@ namespace GD_ControlCenter_WPF.Services
             }
         }
 
-        //private void ParseResponse(byte[] frame)
-        //{
-        //    // 1. 打印完整的原始报文（十六进制形式，例如：01-03-0A-66-...）
-        //    string rawHexStr = BitConverter.ToString(frame);
-        //    System.Diagnostics.Debug.WriteLine($"[接收原始报文]: {rawHexStr}");
-
-        //    // 判定功能码是否为 0x66 (ReturnPowerInfo) 
-        //    if (frame.Length == 13 && (FunctionCode)frame[3] == FunctionCode.ReturnPowerInfo)
-        //    {
-        //        try
-        //        {
-        //            // --- 电压部分 ---
-        //            double rawVoltage = frame[7] + (frame[6] & 0x7f) * 256.0;
-        //            Voltage = (int)Math.Round(rawVoltage / 32768.0 * 2.048 * 5.25 * 150.0);
-
-        //            // 打印电压的原始合并值与最终换算值
-        //            System.Diagnostics.Debug.WriteLine($"[电压解析] Raw值: {rawVoltage} -> 实际值: {Voltage}");
-
-        //            // --- 电流部分 ---
-        //            double rawCurrent = frame[9] + (frame[8] & 0x7f) * 256.0;
-        //            Current = (int)Math.Round(rawCurrent / 32768.0 * 2.048 * 5.25 * 10.0);
-
-        //            // 打印电流的原始合并值与最终换算值
-        //            System.Diagnostics.Debug.WriteLine($"[电流解析] Raw值: {rawCurrent} -> 实际值: {Current}");
-
-        //            IsOnline = true;
-        //            _lastReceivedTime = DateTime.Now;
-
-        //            // 触发属性变更通知，唤醒 ViewModel 更新 UI
-        //            OnPropertyChanged(nameof(Voltage));
-        //            OnPropertyChanged(nameof(Current));
-        //            OnPropertyChanged(nameof(IsOnline));
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            System.Diagnostics.Debug.WriteLine($"[解析异常]: {ex.Message}");
-        //        }
-        //    }
-        //    else
-        //    {
-        //        System.Diagnostics.Debug.WriteLine($"[无效报文] 长度: {frame.Length}, 功能码: 0x{frame[3]:X2}");
-        //    }
-        //}
-
         public void Dispose()
         {
             _pollingTimer?.Dispose();

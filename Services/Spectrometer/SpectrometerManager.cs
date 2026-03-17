@@ -1,6 +1,6 @@
 ﻿using C_Sharp_Application;
 using CommunityToolkit.Mvvm.Messaging;
-using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages; // 请核对你的实际命名空间
+using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services.Spectrometer.Logic;
 using System.Collections.Concurrent;

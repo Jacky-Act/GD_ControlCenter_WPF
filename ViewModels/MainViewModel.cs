@@ -12,9 +12,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         // 直接由构造函数注入
         public ControlPanelViewModel ControlPanelVM { get; }
         public SettingsViewModel SettingsVM { get; }
+        public TimeSeriesViewModel TimeSeriesVM { get; }
 
         // 其他无依赖的纯 UI VM 依然可以手动 new
-        public TimeSeriesViewModel TimeSeriesVM { get; } = new();
         public ElementConfigViewModel ElementConfigVM { get; } = new();
         public FittingCurveViewModel FittingCurveVM { get; } = new();
         public SampleMeasurementViewModel SampleMeasurementVM { get; } = new();
@@ -27,12 +27,14 @@ namespace GD_ControlCenter_WPF.ViewModels
         public MainViewModel(
             ControlPanelViewModel controlPanelVM,
             SettingsViewModel settingsVM,
+            TimeSeriesViewModel timeSeriesVM,
             HighVoltageService hvService,
             JsonConfigService configService,
             ProtocolService protocolService)
         {
             ControlPanelVM = controlPanelVM;
             SettingsVM = settingsVM;
+            TimeSeriesVM = timeSeriesVM;
             _hvService = hvService;
             _configService = configService;
             _protocolService = protocolService;

@@ -35,6 +35,7 @@ namespace GD_ControlCenter_WPF
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<PeristalticPumpViewModel>();
             services.AddSingleton<SyringePumpViewModel>();
+            services.AddSingleton<TimeSeriesViewModel>();
 
             // 构建容器
             Services = services.BuildServiceProvider();
