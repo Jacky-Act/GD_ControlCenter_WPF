@@ -1,0 +1,103 @@
+﻿<Window x:Class="GD_ControlCenter_WPF.Views.Dialogs.TimeSeriesSamplingConfigWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="采样配置" 
+        Height="420" Width="420"
+        WindowStartupLocation="CenterOwner" 
+        ResizeMode="NoResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="时序图 - 采样点配置" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+            <Separator Margin="0,8,0,0" Style="{StaticResource MaterialDesignLightSeparator}" />
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <DataGrid Grid.Row="0" ItemsSource="{Binding SamplingPoints}" 
+                      AutoGenerateColumns="False" 
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      Margin="0,8,0,8">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="移除" Width="Auto">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource MaterialDesignToolButton}" 
+                                        Background="#22F44336"
+                                        BorderThickness="0"
+                                        Command="{Binding DataContext.DeletePointCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"
+                                        ToolTip="移除此通道"
+                                        Padding="2" Width="28" Height="28">
+                                    <materialDesign:PackIcon Kind="Close" Foreground="#F44336"/>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="Margin" Value="4,0,0,0"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTemplateColumn Header="关联特征峰 (x)" Width="1.5*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{Binding DataContext.AvailablePeaks, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                          SelectedItem="{Binding SelectedPeakX, UpdateSourceTrigger=PropertyChanged}"
+                                          materialDesign:HintAssist.Hint="等待寻峰..." 
+                                          IsEditable="False"
+                                          VerticalAlignment="Center"
+                                          Margin="4,0,8,0"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Grid Grid.Row="1" Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" 
+                         materialDesign:HintAssist.Hint="输入新通道/样品名称" 
+                         Text="{Binding NewSampleName, UpdateSourceTrigger=PropertyChanged}" 
+                         Style="{StaticResource MaterialDesignFloatingHintTextBox}" 
+                         VerticalAlignment="Bottom"/>
+
+                <Button Grid.Column="1" 
+                        Style="{StaticResource MaterialDesignFloatingActionMiniButton}" 
+                        Command="{Binding AddPointCommand}" 
+                        ToolTip="添加通道"
+                        Margin="16,0,0,0" VerticalAlignment="Bottom">
+                    <materialDesign:PackIcon Kind="Plus" Width="24" Height="24"/>
+                </Button>
+            </Grid>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="取消" IsCancel="True" Style="{StaticResource MaterialDesignFlatButton}" Margin="0,0,10,0" Width="100"/>
+            <Button Content="应用" Command="{Binding ApplyCommand}" Style="{StaticResource MaterialDesignRaisedButton}" Width="100"/>
+        </StackPanel>
+    </Grid>
+</Window>

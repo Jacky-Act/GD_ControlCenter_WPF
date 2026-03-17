@@ -3,14 +3,63 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:GD_ControlCenter_WPF.Views.Pages"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
-    
-    <Grid Background="LightGreen">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBlock Text="时序图 (Time Series)" FontSize="32" FontWeight="Bold"/>
-            <TextBlock Text="此处将显示光谱仪实时数据" HorizontalAlignment="Center" Margin="0,10"/>
-        </StackPanel>
+             d:DesignHeight="768" d:DesignWidth="1024">
+
+    <Grid Background="{DynamicResource MaterialDesignPaper}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <materialDesign:Card Grid.Row="0" Margin="5,5,5,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+            <Grid Margin="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" 
+                        Command="{Binding ToggleRecordingCommand}"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Background="{Binding RecordButtonColor}"
+                        BorderBrush="{Binding RecordButtonColor}"
+                        Margin="0,0,15,0" Width="130">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="{Binding RecordIcon}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding RecordText}" VerticalAlignment="Center" FontWeight="Bold"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="1" 
+                        Command="{Binding ToggleViewModeCommand}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Foreground="{DynamicResource PrimaryHueMidBrush}"
+                        BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+                        Margin="0,0,15,0" Width="130">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="{Binding ViewModeIcon}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding ViewModeText}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="3" 
+                        Command="{Binding OpenSamplingConfigCommand}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Cog" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="采样配置" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </materialDesign:Card>
+
+        <Border Grid.Row="1" Background="Black" Margin="5,2.5,5,5" CornerRadius="8">
+            <ScottPlot:WpfPlot x:Name="TimeSeriesMultiPlot" />
+        </Border>
     </Grid>
 </UserControl>

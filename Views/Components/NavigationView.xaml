@@ -74,6 +74,20 @@
                         </StackPanel>
                     </TabItem.Header>
                 </TabItem>
+
+                <!-- ================= 新增：流动注射选项卡 ================= -->
+                <TabItem x:Name="FlowInjectionTab">
+                    <TabItem.Header>
+                        <StackPanel Width="52" Margin="0,8">
+                            <!-- 使用 Eyedropper (滴管) 或 WaterPump (水泵) 等图标表示注射 -->
+                            <materialDesign:PackIcon Kind="Eyedropper" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="流动注射" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                    <Border />
+                    <!-- 保持与其他项的结构一致 -->
+                </TabItem>
+                <!-- ======================================================== -->
             </TabControl>
         </ScrollViewer>
 

@@ -1,4 +1,5 @@
 ﻿using GD_ControlCenter_WPF.Services;
+using GD_ControlCenter_WPF.Services.Spectrometer;
 using GD_ControlCenter_WPF.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
@@ -34,6 +35,7 @@ namespace GD_ControlCenter_WPF
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<PeristalticPumpViewModel>();
             services.AddSingleton<SyringePumpViewModel>();
+            services.AddSingleton<TimeSeriesViewModel>();
 
             // 构建容器
             Services = services.BuildServiceProvider();
@@ -51,22 +53,20 @@ namespace GD_ControlCenter_WPF
         {
             try
             {
-                // 1. 从 IoC 容器中获取需要的服务
+                // 从 IoC 容器中获取需要的服务
                 var hvService = Services.GetRequiredService<HighVoltageService>();
                 var generalService = Services.GetRequiredService<GeneralDeviceService>();
                 var serialService = Services.GetRequiredService<ISerialPortService>();
 
-                // 2. 下发硬件关闭指令
-                // 关闭高压电源 (电压 0，电流 0)
-                hvService.SetHighVoltage(0, 0);
+                // 下发硬件关闭指令               
+                hvService.SetHighVoltage(0, 0); // 关闭高压电源 (电压 0，电流 0)              
+                generalService.ControlPeristalticPump(0, true, false);  // 关闭蠕动泵 (转速 0，状态 false 即停止)
+                SpectrometerManager.Instance.StopAll(); // 安全停止光谱仪数据采集，释放底层 C++ 句柄;此操作必须在彻底退出前执行，以防 SDK 挂起
 
-                // 关闭蠕动泵 (转速 0，状态 false 即停止)
-                generalService.ControlPeristalticPump(0, true, false);
-
-                // 3. 等待异步队列清空，确保指令发送完毕
+                // 等待异步队列清空，确保指令发送完毕
                 Thread.Sleep(300);
 
-                // 4. 安全关闭串口
+                // 安全关闭串口
                 serialService.Close();
             }
             catch (Exception)

@@ -23,7 +23,7 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <components:NavigationView x:Name="SideNav" Grid.Column="0" />
+        <components:NavigationView x:Name="SideNav" Grid.Column="0" Loaded="SideNav_Loaded" />
 
         <Border Grid.Column="1" BorderBrush="{DynamicResource MaterialDesignDivider}" BorderThickness="1,0,0,0">
             <ContentControl Content="{Binding CurrentPage}" />

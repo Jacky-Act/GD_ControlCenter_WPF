@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 
@@ -29,7 +29,7 @@ namespace GD_ControlCenter_WPF.ViewModels
 
         // --- 硬件参数属性 ---
 
-        [ObservableProperty] private string _serialNumber = string.Empty; 
+        [ObservableProperty] private string _serialNumber = string.Empty;
         [ObservableProperty] private bool _isConnected;
         [ObservableProperty] private float _integrationTimeMs;
         [ObservableProperty] private uint _averagingCount;

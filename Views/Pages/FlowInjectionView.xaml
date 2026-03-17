@@ -78,17 +78,35 @@
                     <!-- 右侧表格比例 -->
                 </Grid.ColumnDefinitions>
 
-                <!-- 左侧：实时时序图 -->
+                <!-- 左侧：多元素实时时序图 -->
                 <materialDesign:Card Grid.Column="0" Margin="0,0,2.5,0" UniformCornerRadius="8"
-                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                     materialDesign:ElevationAssist.Elevation="Dp2">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
+
                         <StackPanel Grid.Row="0">
-                            <TextBlock Text=" 实 时 时 序 图 " 
-                                       Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                            <!-- 标题与下拉框水平布局 -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text=" 实 时 时 序 图 " 
+                           Style="{StaticResource MaterialDesignSubtitle2TextBlock}" 
+                           Opacity="0.8" VerticalAlignment="Center"/>
+
+                                <!-- 元素切换下拉框 -->
+                                <ComboBox Grid.Column="1" Width="120"
+                          materialDesign:HintAssist.Hint="选择展示元素"
+                          Style="{StaticResource MaterialDesignFloatingHintComboBox}"
+                          ItemsSource="{Binding AvailableElements}"
+                          SelectedItem="{Binding SelectedPlotElement, Mode=TwoWay}">
+                                </ComboBox>
+                            </Grid>
                             <Separator Margin="0,4,0,8" Style="{StaticResource MaterialDesignLightSeparator}"/>
                         </StackPanel>
 

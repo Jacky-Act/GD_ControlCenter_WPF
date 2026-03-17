@@ -1,5 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
-using GD_ControlCenter_WPF.Models.Messages.GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Platform3D;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services.Platform3D.Logic;

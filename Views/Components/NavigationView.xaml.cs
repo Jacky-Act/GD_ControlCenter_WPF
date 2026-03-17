@@ -44,6 +44,11 @@ namespace GD_ControlCenter_WPF.Views.Components
                     case 4:
                         vm.CurrentPage = vm.SampleMeasurementVM;
                         break;
+                    // ================= 新增：流动注射菜单关联 =================
+                    case 5:
+                        vm.CurrentPage = vm.FlowInjectionVM; // 切换到流动注射页面
+                        break;
+                        // ==========================================================
                 }
             }
         }

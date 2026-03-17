@@ -90,6 +90,14 @@ namespace GD_ControlCenter_WPF.Models
         public bool IsSpectrometerEnabled { get; set; } = true;
         public bool IsAutoReigniteEnabled { get; set; } = false;
 
+        // --- 时序图采样配置参数 ---
+
+        /// <summary>
+        /// 记忆的时序图待测样品/通道名称列表。
+        /// 仅保存名称，特征峰(X坐标)由每次运行时重新寻峰配置。
+        /// </summary>
+        public List<string> TimeSeriesSampleNames { get; set; } = new List<string>();
+
         // 可以在此继续添加其他设备的参数，例如：
         // public int LastPumpRpm { get; set; } = 100;
     }

@@ -48,5 +48,9 @@ namespace GD_ControlCenter_WPF.Views
             }
         }
 
+        private void SideNav_Loaded(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }
