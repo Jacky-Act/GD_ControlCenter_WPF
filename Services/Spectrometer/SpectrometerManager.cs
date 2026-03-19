@@ -7,15 +7,25 @@ using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Windows.Data;
 
+/*
+ * 文件名: SpectrometerManager.cs
+ * 模块: 硬件调度中心 (Hardware Orchestration Layer)
+ * 描述: 光谱仪全局管理器 (单例)。
+ * 架构职责: 
+ * 1. 【向下管理硬件】：负责底层 SDK 的全局初始化、USB 设备的扫描与上下线同步。
+ * 2. 【向上输送弹药】：作为所有设备的数据汇总漏斗，执行过曝拦截与多机数据拼接，最后统一通过总线广播。
+ */
+
 namespace GD_ControlCenter_WPF.Services.Spectrometer
 {
-    /// <summary>
-    /// 光谱仪管理器 (全局单例)
-    /// 职责：负责全局 SDK 初始化、设备发现、实例生命周期管理，以及多设备的数据汇总与分发。
-    /// </summary>
     public class SpectrometerManager : IDisposable
     {
-        // --- 私有只读字段 ---
+        #region 1. 单例与并发基建
+
+        /// <summary>
+        /// 获取管理器的全局唯一实例。
+        /// </summary>
+        public static SpectrometerManager Instance { get; } = new SpectrometerManager();
 
         /// <summary>
         /// 用于多线程环境下同步 ObservableCollection 的锁对象。
@@ -23,51 +33,44 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         private readonly object _devicesLock = new object();
 
         /// <summary>
-        /// 暂存多台设备最近的光谱数据，Key 为序列号。用于多机协作场景中的全谱拼接。
+        /// 并发字典：暂存多台设备最近一帧的光谱数据，Key 为设备序列号。
+        /// 核心作用：作为“多机协作拼接”场景下的数据蓄水池。
         /// </summary>
         private readonly ConcurrentDictionary<string, SpectralData> _latestDataCache = new();
 
-        // --- 私有可变字段 ---
-
         /// <summary>
-        /// 标识底层 SDK 是否已经完成了初始化。
+        /// 标识底层 SDK 是否已经完成了 AVS_Init 初始化操作。
         /// </summary>
         private bool _isInitialized = false;
 
-        // --- 属性 ---
-
         /// <summary>
         /// 存储当前系统中所有已识别且初始化的光谱仪服务实例。
-        /// 支持在 UI 层直接进行双向绑定。
+        /// 使用 ObservableCollection 以支持 UI 层 (如设备列表) 的直接双向绑定。
         /// </summary>
         public ObservableCollection<ISpectrometerService> Devices { get; } = new();
 
         /// <summary>
-        /// 获取管理器的全局唯一实例。
-        /// </summary>
-        public static SpectrometerManager Instance { get; } = new SpectrometerManager();
-
-        // --- 构造函数 ---
-
-        /// <summary>
-        /// 私有构造函数，确保单例模式。配置集合的跨线程同步。
+        /// 私有构造函数，强制单例模式。
         /// </summary>
         private SpectrometerManager()
         {
-            // 允许跨线程安全地更新 Devices 集合，防止 UI 线程崩溃
+            // 【跨线程 UI 保护】：允许在后台线程安全地向 Devices 集合添加或移除元素，防止引发 UI 线程的异常崩溃
             BindingOperations.EnableCollectionSynchronization(Devices, _devicesLock);
         }
 
-        // --- 公开方法 ---
+        #endregion
+
+        #region 2. 生命周期与总线控制 (Initialize & Connect)
 
         /// <summary>
-        /// 异步执行全局初始化并扫描 USB/网络 设备。
+        /// 异步执行全局初始化，并扫描系统上的 USB/网络 光谱仪设备。
         /// </summary>
-        /// <returns>返回成功发现并接入系统管理的设备总数，失败或未找到则返回 0 或 -1。</returns>
+        /// <returns>返回成功发现并接入管理的设备总数，失败或未找到则返回 0 或 -1。</returns>
         public async Task<int> DiscoverAndInitDevicesAsync()
         {
             return await Task.Run(() =>
             {
+                // 1. 全局 SDK 激活
                 if (!_isInitialized)
                 {
                     int initResult = AvantesSdk.AVS_Init(0);
@@ -75,16 +78,21 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
                     _isInitialized = true;
                 }
 
+                // 2. 唤醒系统 USB 总线扫描
                 AvantesSdk.AVS_UpdateUSBDevices();
+
+                // 3. 两次探测法获取设备列表大小
                 uint listSize = 0;
                 uint requiredSize = 0;
                 AvantesSdk.AVS_GetList(listSize, ref requiredSize, null!);
 
                 if (requiredSize == 0) return 0;
 
+                // 4. 正式抓取设备身份信息
                 var deviceList = new AvantesSdk.AvsIdentityType[requiredSize / (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(AvantesSdk.AvsIdentityType))];
                 AvantesSdk.AVS_GetList(requiredSize, ref requiredSize, deviceList);
 
+                // 5. 将底层结构体同步为 C# 面向对象服务
                 SyncDevices(deviceList);
 
                 return Devices.Count;
@@ -92,77 +100,74 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         }
 
         /// <summary>
-        /// 统一启动系统中所有在线设备的持续测量。
+        /// 一键启动：统一下发启动指令给所有在线设备。
         /// </summary>
         public void StartAll()
         {
             foreach (var device in Devices)
             {
                 device.StartContinuousMeasurement();
-                System.Threading.Thread.Sleep(50); // 物理间隔，防止 USB 拥堵
+                // 物理间隔缓冲，防止 USB 拥堵导致指令丢失
+                System.Threading.Thread.Sleep(50);
             }
         }
 
         /// <summary>
-        /// 统一停止系统中所有在线设备的测量动作。
+        /// 一键停止：统一下发停止指令给所有在线设备。
         /// </summary>
         public void StopAll()
         {
             foreach (var device in Devices)
             {
                 device.StopMeasurement();
-                System.Threading.Thread.Sleep(100); // 给底层驱动留出释放句柄的时间
+                // 给底层驱动留出释放句柄的缓冲时间
+                System.Threading.Thread.Sleep(100);
             }
         }
 
-        // --- 公开方法 ---
-
         /// <summary>
-        /// 物理断开所有已连接的光谱仪硬件，并释放底层 USB 资源。
+        /// 物理断开所有已连接的光谱仪硬件，并彻底释放底层 USB 资源。
+        /// 通常在软件关闭或用户要求强行重连时调用。
         /// </summary>
         public void DisconnectAll()
         {
-            // 1. 停止当前正在进行的所有采集任务
             StopAll();
 
-            // 2. 逐一释放每个设备的底层 USB 句柄
+            // 逐一释放每个设备的底层 USB 句柄，并注销数据监听
             foreach (var device in Devices)
             {
                 device.DataReady -= OnDeviceDataReady;
-                device.Dispose(); // 内部会调用 AVS_Deactivate(handle)
+                device.Dispose();
             }
 
-            // 3. 彻底释放 SDK 占用的整个 USB 总线资源
+            // 彻底释放 SDK 占用的整个 USB 总线资源
             if (_isInitialized)
             {
                 AvantesSdk.AVS_Done();
-                _isInitialized = false; // 【关键】置为 false，确保下次启用时能重新执行 AVS_Init
+                _isInitialized = false;
             }
 
-            // 4. 清空设备列表与缓存
             Devices.Clear();
             _latestDataCache.Clear();
         }
 
-        /// <summary>
-        /// 释放所有托管与非托管资源，安全断开硬件并清空缓存。
-        /// </summary>
         public void Dispose()
         {
-            // 原有的 Dispose 逻辑可以直接复用 DisconnectAll，保持代码 DRY
             DisconnectAll();
         }
 
-        // --- 私有辅助方法 ---
+        #endregion
+
+        #region 3. 设备同步与事件挂载
 
         /// <summary>
-        /// 将 SDK 扫描到的设备身份信息转化为内部管理的服务实例，并挂载数据监听。
+        /// 内部方法：将 SDK 扫描到的设备身份数组转化为服务实例，并挂载中央数据监听。
         /// </summary>
-        /// <param name="newIdentities">SDK 回传的设备身份数组。</param>
         private void SyncDevices(AvantesSdk.AvsIdentityType[] newIdentities)
         {
             foreach (var identity in newIdentities)
             {
+                // 已存在的设备跳过
                 if (Devices.Any(d => d.Config.SerialNumber == identity.m_SerialNumber))
                     continue;
 
@@ -174,68 +179,111 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
 
                 var service = new SpectrometerService(config);
 
-                // 【核心流转】：直接在此处挂载底层数据的接收事件
+                // 【核心流转】：所有单机设备采到的数据，全部通过这个事件流向 Manager 的 OnDeviceDataReady
                 service.DataReady += OnDeviceDataReady;
 
                 Devices.Add(service);
             }
         }
 
+        #endregion
+
+        #region 4. 【核心路由】数据总线分发引擎 (Data Routing Engine)
+
         /// <summary>
-        /// 响应底层设备的数据就绪事件，执行饱和度校验及多机拼接拦截逻辑。
+        /// 核心事件响应：这是所有底层数据浮出水面的第一站。
+        /// 【重构说明】：采用流水线 (Pipeline) 模式，将过曝检测与数据分发解耦，主流程像散文一样清晰。
         /// </summary>
         /// <param name="data">任意一台设备回传的单次完整光谱数据。</param>
         private void OnDeviceDataReady(SpectralData data)
         {
-            // 1. 查找数据来源设备的配置信息
+            // 流水线 1：执行饱和度（过曝）安全检查
+            HandleSaturationWarning(data);
+
+            // 流水线 2：执行数据分发路由（判断是单机直传，还是多机拼接）
+            HandleDataDispatching(data);
+        }
+
+        /// <summary>
+        /// 路由策略 A：饱和度拦截报警
+        /// </summary>
+        private void HandleSaturationWarning(SpectralData data)
+        {
             var sourceDevice = Devices.FirstOrDefault(d => d.Config.SerialNumber == data.SourceDeviceSerial);
 
-            // 2. 饱和检查拦截 (调用静态工具类)
+            // 如果该设备开启了饱和检测，且算法确认出现过曝像素
             if (sourceDevice != null && sourceDevice.Config.IsSaturationDetectionEnabled)
             {
                 if (SpectrometerLogic.CheckSaturation(data))
                 {
+                    // 向 UI 广播警告消息
                     WeakReferenceMessenger.Default.Send(new SpectrometerStatusMessage(sourceDevice.Config));
                 }
             }
+        }
 
-            // 3. 路由策略分发
+        /// <summary>
+        /// 路由策略 B：单机透传 / 多机拼接分流器
+        /// </summary>
+        private void HandleDataDispatching(SpectralData data)
+        {
             int deviceCount = Devices.Count;
 
             if (deviceCount <= 1)
             {
-                // 【单机模式】：直接透传给前端 UI，并附带当前硬件参数
-                WeakReferenceMessenger.Default.Send(new SpectralDataMessage(data)
-                {
-                    IntegrationTime = Devices[0].Config.IntegrationTimeMs,// 请替换为实际获取积分时间的变量或属性
-                    AveragingCount = Devices[0].Config.AveragingCount     // 请替换为实际获取平均次数的变量或属性
-                });
+                DispatchSingleDeviceData(data);
             }
             else
             {
-                // 【联机模式】：放入并发缓存池
-                _latestDataCache[data.SourceDeviceSerial] = data;
-
-                // 屏障同步策略：若缓存数据条数已达到在线设备总数，说明当前采集周期数据已凑齐
-                if (_latestDataCache.Count >= deviceCount)
-                {
-                    // 调用静态算法库执行去重拼接
-                    var combinedData = SpectrometerLogic.PerformStitching(_latestDataCache.Values);
-
-                    if (combinedData != null)
-                    {
-                        // 附带当前硬件参数发送拼接后的数据
-                        WeakReferenceMessenger.Default.Send(new SpectralDataMessage(combinedData)
-                        {
-                            IntegrationTime = Devices[0].Config.IntegrationTimeMs,// 请替换为实际获取积分时间的变量或属性
-                            AveragingCount = Devices[0].Config.AveragingCount     // 请替换为实际获取平均次数的变量或属性
-                        });
-                    }
-
-                    // 清空缓存，进入下一个并发等待周期
-                    _latestDataCache.Clear();
-                }
+                DispatchMultiDeviceStitchedData(data, deviceCount);
             }
         }
+
+        /// <summary>
+        /// 路由执行 B-1：单机模式直传
+        /// </summary>
+        private void DispatchSingleDeviceData(SpectralData data)
+        {
+            var sourceConfig = Devices[0].Config;
+
+            // 直接包装为带硬件上下文的消息，发射给全局总线
+            WeakReferenceMessenger.Default.Send(new SpectralDataMessage(data)
+            {
+                IntegrationTime = sourceConfig.IntegrationTimeMs,
+                AveragingCount = sourceConfig.AveragingCount
+            });
+        }
+
+        /// <summary>
+        /// 路由执行 B-2：联机模式并发拼接
+        /// </summary>
+        private void DispatchMultiDeviceStitchedData(SpectralData data, int totalOnlineDevices)
+        {
+            // 放入并发蓄水池
+            _latestDataCache[data.SourceDeviceSerial] = data;
+
+            // 【屏障同步策略】：若蓄水池里的数据条数 >= 在线设备总数，说明各台机器都在这一个周期内交卷了
+            if (_latestDataCache.Count >= totalOnlineDevices)
+            {
+                // 调用静态数学库执行“零内存分配”去重拼接
+                var combinedData = SpectrometerLogic.PerformStitching(_latestDataCache.Values);
+
+                if (combinedData != null)
+                {
+                    // 硬件参数以第一台主设备为准进行广播
+                    var mainConfig = Devices[0].Config;
+                    WeakReferenceMessenger.Default.Send(new SpectralDataMessage(combinedData)
+                    {
+                        IntegrationTime = mainConfig.IntegrationTimeMs,
+                        AveragingCount = mainConfig.AveragingCount
+                    });
+                }
+
+                // 泄洪清空蓄水池，准备迎接下一个并发同步周期
+                _latestDataCache.Clear();
+            }
+        }
+
+        #endregion
     }
 }
