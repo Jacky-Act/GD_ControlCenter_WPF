@@ -204,8 +204,12 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
 
             if (deviceCount <= 1)
             {
-                // 【单机模式】：直接透传给前端 UI
-                WeakReferenceMessenger.Default.Send(new SpectralDataMessage(data));
+                // 【单机模式】：直接透传给前端 UI，并附带当前硬件参数
+                WeakReferenceMessenger.Default.Send(new SpectralDataMessage(data)
+                {
+                    IntegrationTime = Devices[0].Config.IntegrationTimeMs,// 请替换为实际获取积分时间的变量或属性
+                    AveragingCount = Devices[0].Config.AveragingCount     // 请替换为实际获取平均次数的变量或属性
+                });
             }
             else
             {
@@ -220,7 +224,12 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
 
                     if (combinedData != null)
                     {
-                        WeakReferenceMessenger.Default.Send(new SpectralDataMessage(combinedData));
+                        // 附带当前硬件参数发送拼接后的数据
+                        WeakReferenceMessenger.Default.Send(new SpectralDataMessage(combinedData)
+                        {
+                            IntegrationTime = Devices[0].Config.IntegrationTimeMs,// 请替换为实际获取积分时间的变量或属性
+                            AveragingCount = Devices[0].Config.AveragingCount     // 请替换为实际获取平均次数的变量或属性
+                        });
                     }
 
                     // 清空缓存，进入下一个并发等待周期

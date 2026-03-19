@@ -6,8 +6,20 @@
  * 项目: GD_ControlCenter_WPF
  */
 
+using System.Collections.Generic;
+
 namespace GD_ControlCenter_WPF.Models
 {
+    /// <summary>
+    /// 时序图采样节点配置实体类。
+    /// 用于持久化保存通道名称以及与其绑定的特征峰(X坐标)。
+    /// </summary>
+    public class TimeSeriesSampleNode
+    {
+        public string Name { get; set; } = string.Empty;
+        public double? SelectedPeakX { get; set; }
+    }
+
     /// <summary>
     /// 系统全局配置实体类。
     /// 映射软件的本地配置文件，管理各硬件模块的记忆参数。
@@ -73,8 +85,6 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public string LastSerialPort { get; set; } = string.Empty;
 
-        // 在 AppConfig 类中新增以下内容
-
         // --- 光谱仪设置参数 ---
 
         /// <summary>
@@ -93,12 +103,38 @@ namespace GD_ControlCenter_WPF.Models
         // --- 时序图采样配置参数 ---
 
         /// <summary>
-        /// 记忆的时序图待测样品/通道名称列表。
-        /// 仅保存名称，特征峰(X坐标)由每次运行时重新寻峰配置。
+        /// 记忆的时序图待测样品/通道节点列表。
+        /// 保存通道名称以及对应的特征峰坐标，生命周期与主界面寻峰线保持同步。
         /// </summary>
-        public List<string> TimeSeriesSampleNames { get; set; } = new List<string>();
+        public List<TimeSeriesSampleNode> TimeSeriesSampleNodes { get; set; } = new List<TimeSeriesSampleNode>();
 
-        // 可以在此继续添加其他设备的参数，例如：
-        // public int LastPumpRpm { get; set; } = 100;
+        // --- 数据导出配置参数 ---
+
+        /// <summary>
+        /// 单次保存全谱图的默认导出路径。
+        /// </summary>
+        public string SingleSaveExportPath { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+        /// <summary>
+        /// 时序图自动保存的默认导出路径
+        /// </summary>
+        public string TimeSeriesSaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+        // --- 脚本保存配置参数 ---
+
+        /// <summary>
+        /// 脚本保存的总次数 (默认 100 次)
+        /// </summary>
+        public int ScriptSaveCount { get; set; } = 100;
+
+        /// <summary>
+        /// 脚本保存的时间间隔 (默认 5 秒)
+        /// </summary>
+        public int ScriptSaveInterval { get; set; } = 5;
+
+        /// <summary>
+        /// 脚本保存的目标文件夹
+        /// </summary>
+        public string ScriptSaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
     }
 }

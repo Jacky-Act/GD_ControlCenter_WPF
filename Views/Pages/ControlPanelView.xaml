@@ -203,9 +203,14 @@
                 <UniformGrid Columns="1" Rows="6">
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
                             Command="{Binding ToggleSpectrometerCommand}" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" 
+                            Content="{Binding ReferenceFileButtonText}" 
+                            Command="{Binding ToggleReferenceFileCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" 
+                            Command="{Binding SingleSaveCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" 
+                            Content="脚本保存" 
+                            Command="{Binding OpenScriptSaveWindowCommand}"/>
 
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="自动范围" 
                             Command="{Binding AutoRangeCommand}" />

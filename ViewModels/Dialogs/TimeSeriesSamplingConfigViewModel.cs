@@ -2,16 +2,18 @@
 using CommunityToolkit.Mvvm.Input;
 using GD_ControlCenter_WPF.Models;
 using GD_ControlCenter_WPF.Services;
+using GD_ControlCenter_WPF.Services.Spectrometer;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
-using System.Xml.Linq;
 
 namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 {
     public partial class TimeSeriesSamplingConfigViewModel : ObservableObject
     {
         private readonly JsonConfigService _configService;
+        private readonly PeakTrackingService _peakTrackingService;
         private readonly Action _closeAction;
 
         // --- 绑定的属性 ---
@@ -20,32 +22,99 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         private ObservableCollection<SamplingPointItem> _samplingPoints = new();
 
         [ObservableProperty]
-        private ObservableCollection<double> _availablePeaks = new(); // 预留接口：存放射线峰坐标
+        private ObservableCollection<PeakOptionItem> _availablePeaks = new();
+
+        [ObservableProperty]
+        private string _comboBoxHintText = "等待寻峰...";
 
         [ObservableProperty]
         private string _newSampleName = string.Empty;
 
-        public TimeSeriesSamplingConfigViewModel(JsonConfigService configService, Action closeAction)
+
+        public TimeSeriesSamplingConfigViewModel(
+            JsonConfigService configService,
+            PeakTrackingService peakTrackingService,
+            Action closeAction)
         {
             _configService = configService;
+            _peakTrackingService = peakTrackingService;
             _closeAction = closeAction;
 
+            LoadAvailablePeaks();
             LoadConfig();
+            UpdatePeakAvailability();
+        }
 
-            // 预留测试数据：等后面写了寻峰算法，直接将结果塞进这个列表即可
-            // AvailablePeaks = new ObservableCollection<double> { 253.65, 313.15, 435.84, 546.07 };
+        private void LoadAvailablePeaks()
+        {
+            AvailablePeaks.Clear();
+
+            // 【新增】：在列表最前方插入“无”选项，其内部值为 null
+            AvailablePeaks.Add(new PeakOptionItem(null));
+
+            foreach (var peak in _peakTrackingService.TrackedPeaks)
+            {
+                AvailablePeaks.Add(new PeakOptionItem(Math.Round(peak.BaseWavelength, 2)));
+            }
+
+            // 因为始终有一个“无”选项，所以判断条件改为 > 1
+            ComboBoxHintText = AvailablePeaks.Count > 1 ? "请选择关联特征峰" : "等待寻峰...";
         }
 
         private void LoadConfig()
         {
             var config = _configService.Load();
-            if (config.TimeSeriesSampleNames != null)
+
+            if (config.TimeSeriesSampleNodes != null)
             {
-                // 将 AppConfig 中的纯字符串名称，包装成带有 X 坐标状态的 UI 实体
-                foreach (var name in config.TimeSeriesSampleNames)
+                foreach (var node in config.TimeSeriesSampleNodes)
                 {
-                    SamplingPoints.Add(new SamplingPointItem(name));
+                    var item = new SamplingPointItem(node.Name);
+
+                    if (node.SelectedPeakX.HasValue)
+                    {
+                        double targetX = node.SelectedPeakX.Value;
+
+                        // 【修改】：比对时必须先确保 p.Value.HasValue，跳过那个 null 的“无”选项
+                        var matchedPeak = AvailablePeaks.FirstOrDefault(p => p.Value.HasValue && Math.Abs(p.Value.Value - targetX) < 0.01);
+
+                        if (matchedPeak != null)
+                        {
+                            item.SelectedPeakX = matchedPeak.Value;
+                        }
+                    }
+
+                    item.PropertyChanged += OnSamplingPointPropertyChanged;
+                    SamplingPoints.Add(item);
                 }
+            }
+        }
+
+        private void OnSamplingPointPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(SamplingPointItem.SelectedPeakX))
+            {
+                UpdatePeakAvailability();
+            }
+        }
+
+        private void UpdatePeakAvailability()
+        {
+            var selectedPeaks = SamplingPoints
+                .Where(p => p.SelectedPeakX.HasValue)
+                .Select(p => p.SelectedPeakX!.Value)
+                .ToList();
+
+            foreach (var peakOption in AvailablePeaks)
+            {
+                // 【新增】：如果是“无”选项 (Value == null)，它永远可用，不参与互斥置灰
+                if (!peakOption.Value.HasValue)
+                {
+                    peakOption.IsAvailable = true;
+                    continue;
+                }
+
+                peakOption.IsAvailable = !selectedPeaks.Any(selected => Math.Abs(selected - peakOption.Value!.Value) < 0.01);
             }
         }
 
@@ -57,12 +126,13 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             if (string.IsNullOrWhiteSpace(NewSampleName)) return;
 
             string nameToAdd = NewSampleName.Trim();
-
-            // 防呆：防止添加同名通道
             if (SamplingPoints.Any(p => p.Name == nameToAdd)) return;
 
-            SamplingPoints.Add(new SamplingPointItem(nameToAdd));
-            NewSampleName = string.Empty; // 添加成功后清空输入框
+            var newItem = new SamplingPointItem(nameToAdd);
+            newItem.PropertyChanged += OnSamplingPointPropertyChanged;
+
+            SamplingPoints.Add(newItem);
+            NewSampleName = string.Empty;
         }
 
         [RelayCommand]
@@ -70,7 +140,9 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         {
             if (item != null && SamplingPoints.Contains(item))
             {
+                item.PropertyChanged -= OnSamplingPointPropertyChanged;
                 SamplingPoints.Remove(item);
+                UpdatePeakAvailability();
             }
         }
 
@@ -79,20 +151,18 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         {
             var config = _configService.Load();
 
-            // 提取所有的名字存入本地配置（丢弃掉临时的特征峰配置）
-            config.TimeSeriesSampleNames = SamplingPoints.Select(p => p.Name).ToList();
-            _configService.Save(config);
+            config.TimeSeriesSampleNodes = SamplingPoints.Select(p => new TimeSeriesSampleNode
+            {
+                Name = p.Name,
+                SelectedPeakX = p.SelectedPeakX
+            }).ToList();
 
-            // TODO 预留：通过 WeakReferenceMessenger 发送一条消息，
-            // 把携带了 SelectedPeakX 的完整 SamplingPoints 列表发给主界面的图表，让图表开始依据这些横坐标提取数据。
+            _configService.Save(config);
 
             _closeAction?.Invoke();
         }
     }
 
-    /// <summary>
-    /// 专用于时序图采样配置 UI 绑定的数据实体
-    /// </summary>
     public partial class SamplingPointItem : ObservableObject
     {
         [ObservableProperty]
@@ -104,6 +174,24 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         public SamplingPointItem(string name)
         {
             Name = name;
+        }
+    }
+
+    public partial class PeakOptionItem : ObservableObject
+    {
+        // 【核心修改】：将 double 改为可空类型 double?，使其能够承载 null 代表的“无”
+        [ObservableProperty]
+        private double? _value;
+
+        [ObservableProperty]
+        private bool _isAvailable = true;
+
+        // 【修改】：根据是否有值动态返回显示文本
+        public string DisplayText => Value.HasValue ? $"{Value.Value:F2} nm" : "无 (不关联)";
+
+        public PeakOptionItem(double? value)
+        {
+            Value = value;
         }
     }
 }

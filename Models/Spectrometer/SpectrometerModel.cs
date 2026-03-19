@@ -14,7 +14,7 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
     /// 光谱仪配置模型。
     /// 负责存储设备硬件信息与测量参数，支持 WPF 数据绑定以实现参数同步更新。
     /// </summary>
-    public partial class SpectrometerConfig : ObservableObject
+    public partial class SpectrometerConfig
     {
         // --- 设备身份信息 ---
 
@@ -119,6 +119,53 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
             Wavelengths = wavelengths;
             Intensities = intensities;
             SourceDeviceSerial = serial;
+        }
+    }
+
+    /// <summary>
+    /// 动态追踪的特征峰模型。
+    /// 用于记录用户在图表上标记的峰，并在连续采样中动态追踪其真实的波长与强度。
+    /// </summary>
+    public partial class TrackedPeak : ObservableObject
+    {
+        /// <summary>
+        /// 初始标记的基准波长 (即鼠标右键点击时的目标横坐标)。
+        /// </summary>
+        [ObservableProperty]
+        private double _baseWavelength;
+
+        /// <summary>
+        /// 寻峰的容差窗口 (±nm)。算法将在此范围内寻找实际的光强最高点。
+        /// 默认设为 2.0nm，可根据实际机器分辨率调整。
+        /// </summary>
+        [ObservableProperty]
+        private double _toleranceWindow = 0.2;
+
+        /// <summary>
+        /// 当前帧实际追踪到的真实峰值波长 (横坐标 X)。
+        /// </summary>
+        [ObservableProperty]
+        private double _currentWavelength;
+
+        /// <summary>
+        /// 当前帧实际追踪到的峰值光强 (纵坐标 Y)。
+        /// </summary>
+        [ObservableProperty]
+        private double _currentIntensity;
+
+        /// <summary>
+        /// 实例化一个新的特征峰追踪对象。
+        /// </summary>
+        /// <param name="baseWavelength">鼠标点击处的横坐标</param>
+        /// <param name="toleranceWindow">搜索容差，默认 2.0nm</param>
+        public TrackedPeak(double baseWavelength, double toleranceWindow = 2.0)
+        {
+            BaseWavelength = baseWavelength;
+            ToleranceWindow = toleranceWindow;
+
+            // 初始化时，当前值先等于基准值，等待下一帧渲染时被真实数据覆盖
+            CurrentWavelength = baseWavelength;
+            CurrentIntensity = 0;
         }
     }
 }

@@ -173,9 +173,6 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                         actualWavelength = currentW;
                     }
                 }
-
-                // 性能优化：数组默认波长为升序，超出窗口后即可提前退出循环
-                if (currentW > targetWavelength + tolerance) break;
             }
             return actualWavelength;
         }
@@ -200,11 +197,6 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                 {
                     minDiff = diff;
                     bestIndex = i;
-                }
-                else if (data.Wavelengths[i] > wavelength)
-                {
-                    // 数组为升序，差异开始变大时说明已经越过了最接近点，可提前退出
-                    break;
                 }
             }
             return data.Intensities[bestIndex];

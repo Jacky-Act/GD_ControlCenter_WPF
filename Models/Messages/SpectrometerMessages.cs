@@ -17,6 +17,10 @@ namespace GD_ControlCenter_WPF.Models.Messages
     /// </summary>
     public class SpectralDataMessage : ValueChangedMessage<SpectralData>
     {
+        // 附带这帧数据产生时的硬件上下文（积分时间与平均次数）
+        public float IntegrationTime { get; set; }
+        public uint AveragingCount { get; set; }
+
         public SpectralDataMessage(SpectralData value) : base(value)
         {
         }
@@ -57,4 +61,13 @@ namespace GD_ControlCenter_WPF.Models.Messages
             IsMatrixView = isMatrixView;
         }
     }
+
+    // 通知 View 加载参考光谱图层
+    public class LoadReferencePlotMessage : ValueChangedMessage<SpectralData>
+    {
+        public LoadReferencePlotMessage(SpectralData value) : base(value) { }
+    }
+
+    // 通知 View 清除参考光谱图层
+    public class ClearReferencePlotMessage { }
 }

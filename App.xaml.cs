@@ -26,6 +26,7 @@ namespace GD_ControlCenter_WPF
             services.AddSingleton<GeneralDeviceService>();
             services.AddSingleton<BatteryService>();
             services.AddSingleton<HighVoltageService>();
+            services.AddSingleton<PeakTrackingService>();
 
             // 3. 注册 ViewModels (单例或瞬态)
             services.AddSingleton<BatteryViewModel>();
@@ -53,6 +54,13 @@ namespace GD_ControlCenter_WPF
         {
             try
             {
+                // 【新增】：1. 触发两个记录模块的紧急静默保存 (同步阻塞，确保存完再关硬件)
+                var timeSeriesVM = Services.GetRequiredService<TimeSeriesViewModel>();
+                timeSeriesVM.EmergencySave();
+
+                var controlPanelVM = Services.GetRequiredService<ControlPanelViewModel>();
+                controlPanelVM.EmergencySave();
+
                 // 从 IoC 容器中获取需要的服务
                 var hvService = Services.GetRequiredService<HighVoltageService>();
                 var generalService = Services.GetRequiredService<GeneralDeviceService>();
@@ -61,7 +69,7 @@ namespace GD_ControlCenter_WPF
                 // 下发硬件关闭指令               
                 hvService.SetHighVoltage(0, 0); // 关闭高压电源 (电压 0，电流 0)              
                 generalService.ControlPeristalticPump(0, true, false);  // 关闭蠕动泵 (转速 0，状态 false 即停止)
-                SpectrometerManager.Instance.StopAll(); // 安全停止光谱仪数据采集，释放底层 C++ 句柄;此操作必须在彻底退出前执行，以防 SDK 挂起
+                SpectrometerManager.Instance.StopAll(); // 安全停止光谱仪数据采集
 
                 // 等待异步队列清空，确保指令发送完毕
                 Thread.Sleep(300);

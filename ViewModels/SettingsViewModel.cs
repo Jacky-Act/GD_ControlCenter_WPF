@@ -32,6 +32,12 @@ namespace GD_ControlCenter_WPF.ViewModels
         [ObservableProperty]
         private bool _isAutoReigniteEnabled;
 
+        [ObservableProperty]
+        private string _singleSaveExportPath = string.Empty;
+
+        [ObservableProperty]
+        private string _timeSeriesSaveDirectory;
+
         public SettingsViewModel(ISerialPortService serialService, JsonConfigService configService)
         {
             _serialService = serialService;
@@ -43,6 +49,15 @@ namespace GD_ControlCenter_WPF.ViewModels
             var config = _configService.Load();
             IsSpectrometerEnabled = config.IsSpectrometerEnabled;
             IsAutoReigniteEnabled = config.IsAutoReigniteEnabled;
+            // 【统一风格】：如果没设置过单次保存路径，UI 上也默认显示桌面
+            SingleSaveExportPath = string.IsNullOrWhiteSpace(config.SingleSaveExportPath)
+                ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+                : config.SingleSaveExportPath;
+
+            // 时序图保存路径，为空则默认显示桌面
+            TimeSeriesSaveDirectory = string.IsNullOrWhiteSpace(config.TimeSeriesSaveDirectory)
+                ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+                : config.TimeSeriesSaveDirectory;
 
             RefreshPorts();
         }
@@ -162,6 +177,54 @@ namespace GD_ControlCenter_WPF.ViewModels
             else
             {
                 StatusText = "未连接";
+            }
+        }
+
+        /// <summary>
+        /// 打开文件夹选择对话框，并自动持久化保存新路径
+        /// </summary>
+        [RelayCommand]
+        private void BrowseExportPath()
+        {
+            // 使用 Ookii 调出 Windows 10/11 风格的现代文件夹选择器
+            var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
+            {
+                Description = "选择单次保存的默认文件夹",
+                UseDescriptionForTitle = true,
+                SelectedPath = SingleSaveExportPath
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                SingleSaveExportPath = dialog.SelectedPath;
+
+                // 立即持久化保存到本地 JSON
+                var config = _configService.Load();
+                config.SingleSaveExportPath = dialog.SelectedPath;
+                _configService.Save(config);
+            }
+        }
+
+
+        [RelayCommand]
+        private void BrowseTimeSeriesDirectory()
+        {
+            // 复用 WinForms 文件夹选择器
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "选择时序图自动保存目录",
+                UseDescriptionForTitle = true,
+                SelectedPath = TimeSeriesSaveDirectory
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                TimeSeriesSaveDirectory = dialog.SelectedPath;
+
+                // 【说明】：更新到本地 Json 配置中 (根据您实际的保存逻辑调整)
+                var config = _configService.Load();
+                config.TimeSeriesSaveDirectory = TimeSeriesSaveDirectory;
+                _configService.Save(config);
             }
         }
     }

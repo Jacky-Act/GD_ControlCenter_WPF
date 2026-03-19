@@ -58,8 +58,22 @@
             </Grid>
         </materialDesign:Card>
 
-        <Border Grid.Row="1" Background="Black" Margin="5,2.5,5,5" CornerRadius="8">
-            <ScottPlot:WpfPlot x:Name="TimeSeriesMultiPlot" />
+        <Border Grid.Row="1" Background="{DynamicResource MaterialDesignPaper}" Margin="5,2.5,5,5" CornerRadius="8">
+            <ItemsControl ItemsSource="{Binding Charts}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="{Binding GridColumns}" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <materialDesign:Card Margin="5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                            <ScottPlot:WpfPlot Loaded="OnPlotLoaded" Unloaded="OnPlotUnloaded" Margin="2,2,2,0"/>
+                        </materialDesign:Card>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Border>
     </Grid>
 </UserControl>

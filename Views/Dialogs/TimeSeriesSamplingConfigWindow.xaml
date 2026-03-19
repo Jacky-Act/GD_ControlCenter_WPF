@@ -11,17 +11,11 @@
 
     <Grid Margin="24">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBlock Text="时序图 - 采样点配置" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
-            <Separator Margin="0,8,0,0" Style="{StaticResource MaterialDesignLightSeparator}" />
-        </StackPanel>
-
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -31,7 +25,7 @@
                       AutoGenerateColumns="False" 
                       CanUserAddRows="False" CanUserDeleteRows="False"
                       HeadersVisibility="Column"
-                      Margin="0,8,0,8">
+                      Margin="0,0,0,8">
                 <DataGrid.Columns>
                     <DataGridTemplateColumn Header="移除" Width="Auto">
                         <DataGridTemplateColumn.CellTemplate>
@@ -62,11 +56,30 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <ComboBox ItemsSource="{Binding DataContext.AvailablePeaks, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                          SelectedItem="{Binding SelectedPeakX, UpdateSourceTrigger=PropertyChanged}"
-                                          materialDesign:HintAssist.Hint="等待寻峰..." 
+                                          SelectedValue="{Binding SelectedPeakX, UpdateSourceTrigger=PropertyChanged}"
+                                          SelectedValuePath="Value"
+                                          materialDesign:HintAssist.Hint="{Binding DataContext.ComboBoxHintText, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
                                           IsEditable="False"
                                           VerticalAlignment="Center"
-                                          Margin="4,0,8,0"/>
+                                          Margin="4,0,8,0">
+
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayText}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource MaterialDesignComboBoxItemStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                    <Setter Property="Opacity" Value="0.4"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                </ComboBox>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -95,7 +108,7 @@
             </Grid>
         </Grid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="取消" IsCancel="True" Style="{StaticResource MaterialDesignFlatButton}" Margin="0,0,10,0" Width="100"/>
             <Button Content="应用" Command="{Binding ApplyCommand}" Style="{StaticResource MaterialDesignRaisedButton}" Width="100"/>
         </StackPanel>
