@@ -29,6 +29,9 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         [ObservableProperty]
         private string _pumpFlowRateB;
 
+        [ObservableProperty]
+        private bool _isDirectionEnabled;
+
         // 【新增】用于在界面实时展示的计算流速
         [ObservableProperty]
         private double _calculatedFlowRate;
@@ -41,14 +44,15 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             _isRunning = isRunning;
             _closeAction = closeAction;
 
+            // 【新增】根据运行状态决定方向切换按钮是否可用
+            IsDirectionEnabled = !_isRunning;
+
             TargetSpeed = currentConfig.LastPumpSpeed;
             IsClockwise = currentConfig.IsPumpClockwise;
             PumpFlowRateK = currentConfig.PumpFlowRateK.ToString();
-            PumpFlowRateB = currentConfig.PumpFlowRateB.ToString(); 
+            PumpFlowRateB = currentConfig.PumpFlowRateB.ToString();
 
-            // 【新增】窗口打开时，进行一次初始计算
             UpdateCalculatedFlowRate();
-
             UpdateDirectionHint(IsClockwise);
         }
 

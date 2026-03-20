@@ -97,6 +97,7 @@
 
                 <ToggleButton Style="{StaticResource PurpleSwitchStyle}"
                               IsChecked="{Binding IsClockwise}"
+                              IsEnabled="{Binding IsDirectionEnabled}"
                               ToolTip="切换泵送方向">
                     <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />
                     <materialDesign:ToggleButtonAssist.OnContent>

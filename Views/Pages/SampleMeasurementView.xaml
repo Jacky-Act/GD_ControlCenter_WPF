@@ -46,8 +46,8 @@
                             <DataGridTextColumn Header="波长 (nm)" Binding="{Binding Wavelength}" Width="*"/>
                             <DataGridTextColumn Header="拟合方程" Binding="{Binding EquationText}" Width="1.5*"/>
                             <DataGridTextColumn Header="R²" Binding="{Binding RSquaredText}" Width="*"/>
-                            <DataGridTextColumn Header="电流配置 (mA)" Binding="{Binding CurrentConfigText}" Width="*"/>
-                            <DataGridTextColumn Header="转速配置 (rpm)" Binding="{Binding SpeedConfigText}" Width="*"/>
+                            <DataGridTextColumn Header="电流 (mA)" Binding="{Binding CurrentConfigText}" Width="*"/>
+                            <DataGridTextColumn Header="转速 (rpm)" Binding="{Binding SpeedConfigText}" Width="*"/>
                             <DataGridTextColumn Header="采样次数" Binding="{Binding SampleCountText}" Width="*"/>
                             <DataGridTextColumn Header="采样间隔 (s)" Binding="{Binding SampleIntervalText}" Width="*"/>
                         </DataGrid.Columns>
