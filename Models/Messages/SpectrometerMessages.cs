@@ -93,5 +93,15 @@ namespace GD_ControlCenter_WPF.Models.Messages
     /// </summary>
     public class ClearReferencePlotMessage { }
 
+    /// <summary>
+    /// 脚本保存状态变更消息。
+    /// 发送方: ControlPanelViewModel (保存任务结束或启动时)
+    /// 订阅方: ScriptSaveViewModel (用于二级窗口实时同步按钮状态与锁定 UI)
+    /// </summary>
+    public class ScriptSaveStateChangedMessage : ValueChangedMessage<bool>
+    {
+        public ScriptSaveStateChangedMessage(bool isSaving) : base(isSaving) { }
+    }
+
     #endregion
 }

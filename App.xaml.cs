@@ -1,6 +1,7 @@
 ﻿using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using GD_ControlCenter_WPF.ViewModels;
+using GD_ControlCenter_WPF.Services.Platform3D; 
 using Microsoft.Extensions.DependencyInjection;
 using System.Windows;
 
@@ -27,6 +28,8 @@ namespace GD_ControlCenter_WPF
             services.AddSingleton<BatteryService>();
             services.AddSingleton<HighVoltageService>();
             services.AddSingleton<PeakTrackingService>();
+            services.AddSingleton<IPlatform3DService, Platform3DService>();
+            services.AddSingleton<PlatformCalibrationService>();
 
             // 3. 注册 ViewModels (单例或瞬态)
             services.AddSingleton<BatteryViewModel>();

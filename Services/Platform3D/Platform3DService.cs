@@ -1,28 +1,28 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Platform3D;
 using GD_ControlCenter_WPF.Services.Commands;
+using System.IO;
+using System.Text.Json;
 
 namespace GD_ControlCenter_WPF.Services.Platform3D
 {
     /// <summary>
-    /// 三维平台控制服务实现类
+    /// 三维平台控制服务实现类 (自闭环状态与持久化)
     /// </summary>
-    public partial class Platform3DService : ObservableObject, IPlatform3DService, IDisposable
+    public class Platform3DService : IPlatform3DService, IDisposable
     {
         private readonly ISerialPortService _serialPortService;
-        private readonly PlatformStorageService _storageService;
         private readonly object _lockObj = new();
+        private readonly string _storageFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "platform_position.json");
+        private CancellationTokenSource? _currentMoveCts;
 
-        // 暴露给外部的状态
         public PlatformPosition CurrentPosition { get; } = new();
         public PlatformStatus Status { get; } = new();
 
-        public Platform3DService(ISerialPortService serialPortService, PlatformStorageService storageService)
+        public Platform3DService(ISerialPortService serialPortService)
         {
             _serialPortService = serialPortService;
-            _storageService = storageService;
 
             // 订阅来自 ProtocolService 的 8 字节平台响应帧
             WeakReferenceMessenger.Default.Register<Platform3DMessage>(this, (r, m) =>
@@ -31,32 +31,14 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
             });
         }
 
-        /// <summary>
-        /// 初始化：从本地 JSON 加载历史坐标
-        /// </summary>
         public async Task InitializeAsync()
         {
-            var savedData = await _storageService.LoadAsync();
-            if (savedData != null)
-            {
-                CurrentPosition.X = savedData.X;
-                CurrentPosition.Y = savedData.Y;
-                CurrentPosition.Z = savedData.Z;
-                // 同步边界状态
-                foreach (var axis in savedData.IsAtMin.Keys)
-                {
-                    Status.IsAtMin[axis] = savedData.IsAtMin[axis];
-                    Status.IsAtMax[axis] = savedData.IsAtMax[axis];
-                }
-            }
+            await LoadPositionInternalAsync();
         }
 
-        /// <summary>
-        /// 执行异步移动逻辑
-        /// </summary>
         public async Task<bool> MoveAxisAsync(AxisType axis, int step, bool isPositive, CancellationToken ct = default)
         {
-            // 1. 软件限位与安全检查
+            // 1. 运动前的软限位安全检查
             if (!CheckSafety(axis, step, isPositive)) return false;
 
             lock (_lockObj)
@@ -65,35 +47,72 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
                 Status.IsMoving = true;
             }
 
+            // 每次移动前，创建一个内部的取消令牌，并与外部传进来的 ct 关联
+            _currentMoveCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
             try
             {
                 // 2. 发送硬件指令
                 SendMoveCommand(axis, step, isPositive);
 
-                // 3. 异步等待移动完成或被取消
-                // 注意：此处可结合硬件回传的确认帧进行 TaskCompletionSource 优化，目前先保持逻辑通顺
-                await Task.Delay(CalculateMoveDelay(step), ct);
+                // 3. 异步等待移动完成 (【关键修改】：使用 _currentMoveCts.Token)
+                // 一旦触碰限位，这里会瞬间抛出 OperationCanceledException
+                await Task.Delay(CalculateMoveDelay(step), _currentMoveCts.Token);
 
-                if (!ct.IsCancellationRequested)
-                {
-                    UpdateLocalPosition(axis, step, isPositive);
-                    await SavePositionAsync();
-                    return true;
-                }
+                // 4. 如果没抛出异常，说明正常走完了全程没有碰壁，才进行常规的坐标累加
+                UpdateLocalPosition(axis, step, isPositive);
+                await SavePositionInternalAsync();
+                return true;
             }
-            catch (OperationCanceledException) { /* 正常取消 */ }
+            catch (OperationCanceledException)
+            {
+                // 【关键逻辑】：运动被强行打断（碰到物理限位了）。
+                // 此时直接返回 false，坚决不执行 UpdateLocalPosition 的累加逻辑！
+                return false;
+            }
             finally
             {
+                // 无论成功还是被打断，立刻释放状态，让界面按钮恢复使能
                 Status.IsMoving = false;
+                _currentMoveCts?.Dispose();
+                _currentMoveCts = null;
             }
-            return false;
         }
 
-        /// <summary>
-        /// 接收协议层分发的边界信号
-        /// </summary>
+        public void StopAll()
+        {
+            Status.IsMoving = false;
+        }
+
+        #region 内部硬件与信号处理逻辑
+
+        private void HandleHardwareResponse(byte[] rawData)
+        {
+            if (rawData == null || rawData.Length < 8) return;
+
+            // 根据硬件协议解析轴停止信号 (字节索引 6)
+            switch (rawData[6])
+            {
+                case 0xA1: HandleBoundarySignal(AxisType.X, true); break;
+                case 0xA3: HandleBoundarySignal(AxisType.X, false); break;
+                case 0xB1: HandleBoundarySignal(AxisType.Y, true); break;
+                case 0xB3: HandleBoundarySignal(AxisType.Y, false); break;
+                case 0xC1: HandleBoundarySignal(AxisType.Z, true); break;
+                case 0xC3: HandleBoundarySignal(AxisType.Z, false); break;
+            }
+        }
+
         public void HandleBoundarySignal(AxisType axis, bool isZeroPosition)
         {
+            // 1. 防抖过滤：如果系统已经知道在限位上了，忽略硬件连发的重复警告
+            if (isZeroPosition && Status.IsAtMin[axis]) return;
+            if (!isZeroPosition && Status.IsAtMax[axis]) return;
+
+            // 2. 【核心动作】：立即打断当前的移动延时！
+            // 这行代码会让 MoveAxisAsync 里的 Task.Delay 瞬间中断，跳入 catch 块。
+            _currentMoveCts?.Cancel();
+
+            // 3. 直接将位置锁定为绝对边界值（不加减步长）
             if (isZeroPosition)
             {
                 CurrentPosition[axis] = 0;
@@ -106,93 +125,40 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
                 Status.IsAtMin[axis] = false;
                 Status.IsAtMax[axis] = true;
             }
-            SavePositionAsync().Wait();
+
+            // 4. 异步落盘，保存这个被修正的边界坐标
+            _ = SavePositionInternalAsync();
+
+            // 5. 广播高阶业务消息，通知 ViewModel 弹出“已到达边界”的提示信息
+            WeakReferenceMessenger.Default.Send(new PlatformBoundaryMessage(axis, isZeroPosition));
         }
 
-        //这需要硬件的更改
-        public void StopAll() => Status.IsMoving = false;
-
-        public async Task SavePositionAsync() => await _storageService.SaveAsync(CurrentPosition, Status);
-
-        #region 私有辅助方法
-
-        /// <summary>
-        /// 处理硬件返回的 8 字节平台消息
-        /// </summary>
-        private void HandleHardwareResponse(byte[] rawData)
-        {
-            if (rawData == null || rawData.Length < 8) return;
-
-            // 根据硬件协议解析轴停止信号 (字节索引 6)
-            switch (rawData[6])
-            {
-                case 0xA1: HandleBoundarySignal(AxisType.X, true); break;  // X 轴零点
-                case 0xA3: HandleBoundarySignal(AxisType.X, false); break; // X 轴最大值
-                case 0xB1: HandleBoundarySignal(AxisType.Y, true); break;  // Y 轴零点
-                case 0xB3: HandleBoundarySignal(AxisType.Y, false); break; // Y 轴最大值
-                case 0xC1: HandleBoundarySignal(AxisType.Z, true); break;  // Z 轴零点
-                case 0xC3: HandleBoundarySignal(AxisType.Z, false); break; // Z 轴最大值
-            }
-        }
-
-        /// <summary>
-        /// 发送三维平台移动指令
-        /// </summary>
-        /// <param name="axis">目标轴</param>
-        /// <param name="step">移动步长</param>
-        /// <param name="isPositive">是否正向移动</param>
         private void SendMoveCommand(AxisType axis, int step, bool isPositive)
         {
             var cmd = ControlCommandFactory.CreatePlatformMove((int)axis, isPositive, step);
             _serialPortService.Send(cmd);
         }
 
-        /// <summary>
-        /// 运动前的安全逻辑检查，防止物理撞击或越界
-        /// </summary>
-        /// <param name="axis">准备移动的轴</param>
-        /// <param name="step">移动步长</param>
-        /// <param name="isPositive">方向：true 为正向，false 为负向</param>
-        /// <returns>检查通过返回 true；若存在撞击风险则返回 false</returns>
         private bool CheckSafety(AxisType axis, int step, bool isPositive)
         {
-            // 边界软限制：如果传感器已显示在零点，禁止继续向负方向移动
             if (Status.IsAtMin[axis] && !isPositive) return false;
-
-            // 边界软限制：如果传感器已显示在最大值，禁止继续向正方向移动
             if (Status.IsAtMax[axis] && isPositive) return false;
 
-            // Z 轴特殊安全冗余：探针下压（负向）时，不允许超过预设的安全极限值（如 -2000）
             if (axis == AxisType.Z && !isPositive && (CurrentPosition.Z - step) < PlatformLimits.ZAxisMinLimit)
                 return false;
 
             return true;
         }
 
-        /// <summary>
-        /// 更新本地内存中的坐标数值，并重置相关的边界状态标志
-        /// </summary>
-        /// <param name="axis">移动的轴</param>
-        /// <param name="step">移动步长</param>
-        /// <param name="isPositive">方向</param>
         private void UpdateLocalPosition(AxisType axis, int step, bool isPositive)
         {
-            // 计算位移增量
             int delta = isPositive ? step : -step;
-
-            // 利用索引器更新对应轴的坐标值
             CurrentPosition[axis] += delta;
 
-            // 逻辑自愈：一旦从边界开关处向反方向移动，立即清除对应的边界锁定状态
             if (isPositive) Status.IsAtMin[axis] = false;
             else Status.IsAtMax[axis] = false;
         }
 
-        /// <summary>
-        /// 获取指定轴定义的硬限制最大行程步数
-        /// </summary>
-        /// <param name="axis">轴类型</param>
-        /// <returns>该轴的最大步数值</returns>
         private int GetMaxStep(AxisType axis) => axis switch
         {
             AxisType.X => PlatformLimits.MaxStepX,
@@ -201,12 +167,58 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
             _ => 0
         };
 
-        /// <summary>
-        /// 根据移动步长估算等待硬件动作完成的时间延迟
-        /// </summary>
-        /// <param name="step">移动步数</param>
-        /// <returns>毫秒值（基准：每 500 步约耗时 1 秒，外加 500ms 冗余）</returns>
         private int CalculateMoveDelay(int step) => (step / 500) * 1000 + 500;
+
+        #endregion
+
+        #region 本地 JSON 持久化逻辑
+
+        private async Task LoadPositionInternalAsync()
+        {
+            if (!File.Exists(_storageFilePath)) return;
+            try
+            {
+                string json = await File.ReadAllTextAsync(_storageFilePath);
+                var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                CurrentPosition.X = root.GetProperty("X").GetInt32();
+                CurrentPosition.Y = root.GetProperty("Y").GetInt32();
+                CurrentPosition.Z = root.GetProperty("Z").GetInt32();
+
+                var minStatus = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<AxisType, bool>>(root.GetProperty("IsAtMin").GetRawText());
+                var maxStatus = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<AxisType, bool>>(root.GetProperty("IsAtMax").GetRawText());
+
+                if (minStatus != null) Status.IsAtMin = minStatus;
+                if (maxStatus != null) Status.IsAtMax = maxStatus;
+            }
+            catch { /* 解析失败保留默认值 */ }
+        }
+
+        private async Task SavePositionInternalAsync()
+        {
+            try
+            {
+                string? dir = Path.GetDirectoryName(_storageFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                var data = new
+                {
+                    CurrentPosition.X,
+                    CurrentPosition.Y,
+                    CurrentPosition.Z,
+                    Status.IsAtMin,
+                    Status.IsAtMax
+                };
+
+                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(_storageFilePath, json);
+            }
+            catch { /* 写入冲突或异常不阻断控制流 */ }
+        }
 
         #endregion
 

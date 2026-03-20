@@ -9,7 +9,6 @@
 
     <Window.Resources>
         <SolidColorBrush x:Key="PurpleThemeBrush" Color="#673ab7" />
-
         <Style x:Key="PurpleRadioButtonStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="Black"/>
@@ -19,9 +18,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="4" 
-                                Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -36,18 +33,25 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="24,20,24,20">
+    <Grid Margin="24,15,24,15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1.5*"/>
             <ColumnDefinition Width="1*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,20,0">
+        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#F3E5F5" CornerRadius="4" Padding="10,6" Margin="0,0,0,15">
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon Kind="InformationOutline" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource PurpleThemeBrush}"/>
+                <TextBlock Text="{Binding CalibrationStatus}" VerticalAlignment="Center" FontSize="14" FontWeight="Medium" Foreground="#4A148C" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,20,10">
             <TextBlock Text="实时坐标监测" Style="{StaticResource MaterialDesignBody2TextBlock}" Opacity="0.6" Margin="0,0,0,12"/>
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -76,39 +80,27 @@
             </Grid>
         </StackPanel>
 
-        <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">
+        <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Top">
             <TextBlock Text="自动化校准序列" Style="{StaticResource MaterialDesignBody2TextBlock}" Opacity="0.6" Margin="0,0,0,12"/>
-
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <ComboBox Grid.Column="0" ItemsSource="{Binding PeakWavelengths}" 
-                          SelectedItem="{Binding SelectedPeakWavelength}"
-                          materialDesign:HintAssist.Hint="目标波长 (nm)"
-                          HorizontalAlignment="Stretch" Margin="0,0,15,0" VerticalAlignment="Center"
+                <ComboBox Grid.Column="0" ItemsSource="{Binding PeakWavelengths}" SelectedItem="{Binding SelectedPeakWavelength}"
+                          materialDesign:HintAssist.Hint="目标波长 (nm)" Width="140" HorizontalAlignment="Left" Margin="0,0,15,0" VerticalAlignment="Center"
                           Style="{StaticResource MaterialDesignFloatingHintComboBox}"/>
 
-                <Button Grid.Column="1" Command="{Binding StartCalibrationCommand}" 
-                        Content="开始校准" 
-                        Style="{StaticResource MaterialDesignRaisedButton}"
-                        Background="{StaticResource PurpleThemeBrush}"
-                        BorderBrush="{StaticResource PurpleThemeBrush}"
-                        IsEnabled="{Binding !IsCalibrating}"
+                <Button Grid.Column="1" Command="{Binding StartCalibrationCommand}" Content="开始" 
+                        Style="{StaticResource MaterialDesignRaisedButton}" Background="{StaticResource PurpleThemeBrush}"
+                        BorderBrush="{StaticResource PurpleThemeBrush}" IsEnabled="{Binding !IsCalibrating}"
                         Width="100" Height="36" materialDesign:ButtonAssist.CornerRadius="4"/>
             </Grid>
-
-            <StackPanel Orientation="Horizontal" Margin="0,15,0,0">
-                <materialDesign:PackIcon Kind="InformationOutline" VerticalAlignment="Center" Margin="0,0,5,0" Opacity="0.7"/>
-                <TextBlock Text="{Binding CalibrationStatus}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" TextWrapping="Wrap"/>
-            </StackPanel>
         </StackPanel>
 
-        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
+        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="0,15,0,0">
             <TextBlock Text="手动步进调节" Style="{StaticResource MaterialDesignBody2TextBlock}" Opacity="0.6" Margin="0,0,0,10"/>
-
             <Grid Height="36">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -120,30 +112,26 @@
 
                 <Border Grid.Column="0" Background="#10000000" CornerRadius="6" Margin="0,0,20,0">
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Content="X轴" GroupName="AxisGroup" IsChecked="True" Style="{StaticResource PurpleRadioButtonStyle}" Width="65" />
-                        <RadioButton Content="Y轴" GroupName="AxisGroup" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
-                        <RadioButton Content="Z轴" GroupName="AxisGroup" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
+                        <RadioButton Content="X轴" GroupName="AxisGroup" IsChecked="{Binding IsXSelected}" Style="{StaticResource PurpleRadioButtonStyle}" Width="65" />
+                        <RadioButton Content="Y轴" GroupName="AxisGroup" IsChecked="{Binding IsYSelected}" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
+                        <RadioButton Content="Z轴" GroupName="AxisGroup" IsChecked="{Binding IsZSelected}" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Column="1" Background="#10000000" CornerRadius="6">
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Content="{materialDesign:PackIcon Kind=Plus}" ToolTip="正向移动" GroupName="DirGroup" IsChecked="True" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
-                        <RadioButton Content="{materialDesign:PackIcon Kind=Minus}" ToolTip="反向移动" GroupName="DirGroup" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
+                        <RadioButton Content="{materialDesign:PackIcon Kind=Plus}" ToolTip="正向移动" GroupName="DirGroup" IsChecked="{Binding IsDirPositive}" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
+                        <RadioButton Content="{materialDesign:PackIcon Kind=Minus}" ToolTip="反向移动" GroupName="DirGroup" IsChecked="{Binding IsDirNegative}" Style="{StaticResource PurpleRadioButtonStyle}" Width="65"/>
                     </StackPanel>
                 </Border>
 
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,0,15,0" VerticalAlignment="Center">
                     <TextBlock Text="步长" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="14" Opacity="0.8"/>
-                    <TextBox Text="{Binding StepDistance, UpdateSourceTrigger=PropertyChanged}" 
-                             Width="80" 
-                             TextAlignment="Center" VerticalAlignment="Center"
-                             Style="{StaticResource MaterialDesignTextBox}"/>
+                    <TextBox Text="{Binding StepDistance, UpdateSourceTrigger=PropertyChanged}" Width="80" TextAlignment="Center" VerticalAlignment="Center" Style="{StaticResource MaterialDesignTextBox}"/>
                 </StackPanel>
 
                 <Button Grid.Column="4" Command="{Binding MoveCommand}" Style="{StaticResource MaterialDesignRaisedButton}" 
-                        Background="{StaticResource PurpleThemeBrush}"
-                        BorderBrush="{StaticResource PurpleThemeBrush}"
+                        Background="{StaticResource PurpleThemeBrush}" BorderBrush="{StaticResource PurpleThemeBrush}"
                         Content="移动" Width="100" Height="36" materialDesign:ButtonAssist.CornerRadius="4"/>
             </Grid>
         </StackPanel>

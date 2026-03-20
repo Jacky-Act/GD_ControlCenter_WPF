@@ -1,12 +1,11 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-
-/*
+﻿/*
  * 文件名: PlatformModel.cs
  * 描述: 本文件定义了三维运动平台的物理模型、运行状态以及软限位常量。
- * 采用了 CommunityToolkit.Mvvm 框架实现属性变更通知，确保位置与状态数据能实时同步至 UI 界面。
- * 同时也整合了硬件通信协议中定义的轴类型映射关系。
+ * 架构规范: 纯数据模型 (POCO)，已剥离 MVVM 框架依赖。
  * 项目: GD_ControlCenter_WPF
  */
+
+using System.Collections.Generic;
 
 namespace GD_ControlCenter_WPF.Models.Platform3D
 {
@@ -22,20 +21,14 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
     }
 
     /// <summary>
-    /// 三维平台实时位置模型。
-    /// 继承自 ObservableObject，利用 [ObservableProperty] 自动生成适配 WPF 绑定的属性。
-    /// 用于记录和展示 X、Y、Z 三轴当前的脉冲步数。
+    /// 三维平台实时位置模型 (纯数据容器)
+    /// 用于记录 X、Y、Z 三轴当前的脉冲步数。
     /// </summary>
-    public partial class PlatformPosition : ObservableObject
+    public class PlatformPosition
     {
-        [ObservableProperty]
-        private int _x;
-
-        [ObservableProperty]
-        private int _y;
-
-        [ObservableProperty]
-        private int _z;
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Z { get; set; }
 
         /// <summary>
         /// 快捷获取/设置指定轴的位置值
@@ -62,22 +55,18 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
     }
 
     /// <summary>
-    /// 三维平台运行状态模型。
+    /// 三维平台运行状态模型 (纯数据容器)
     /// 集中管理平台的运动状态、复位状态以及各轴的物理边界触发标志。
     /// </summary>
-    public partial class PlatformStatus : ObservableObject
+    public class PlatformStatus
     {
-        [ObservableProperty]
-        private bool _isMoving;
-
-        [ObservableProperty]
-        private bool _isHomed;
+        public bool IsMoving { get; set; }
+        public bool IsHomed { get; set; }
 
         /// <summary>
         /// 各轴零点边界标志（Min）
-        /// 使用字典统一管理，消除冗余的 switch 判断逻辑
         /// </summary>
-        public Dictionary<AxisType, bool> IsAtMin { get; } = new()
+        public Dictionary<AxisType, bool> IsAtMin { get; set; } = new()
         {
             { AxisType.X, false },
             { AxisType.Y, false },
@@ -87,7 +76,7 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
         /// <summary>
         /// 各轴最大值边界标志（Max）
         /// </summary>
-        public Dictionary<AxisType, bool> IsAtMax { get; } = new()
+        public Dictionary<AxisType, bool> IsAtMax { get; set; } = new()
         {
             { AxisType.X, false },
             { AxisType.Y, false },
