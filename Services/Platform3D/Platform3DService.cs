@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
+using GD_ControlCenter_WPF.Models;
 using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Platform3D;
 using GD_ControlCenter_WPF.Services.Commands;
@@ -13,6 +14,7 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
     public class Platform3DService : IPlatform3DService, IDisposable
     {
         private readonly ISerialPortService _serialPortService;
+        private readonly JsonConfigService _jsonConfigService;
         private readonly object _lockObj = new();
         private readonly string _storageFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "platform_position.json");
         private CancellationTokenSource? _currentMoveCts;
@@ -20,20 +22,24 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
         public PlatformPosition CurrentPosition { get; } = new();
         public PlatformStatus Status { get; } = new();
 
-        public Platform3DService(ISerialPortService serialPortService)
+        public Platform3DService(ISerialPortService serialPortService, JsonConfigService jsonConfigService)
         {
             _serialPortService = serialPortService;
+            _jsonConfigService = jsonConfigService;
 
-            // 订阅来自 ProtocolService 的 8 字节平台响应帧
+            // 在服务实例化时，立即同步加载历史坐标与限位状态
+            LoadPositionInternal();
+
             WeakReferenceMessenger.Default.Register<Platform3DMessage>(this, (r, m) =>
             {
                 HandleHardwareResponse(m.Value);
             });
         }
 
-        public async Task InitializeAsync()
+        public Task InitializeAsync()
         {
-            await LoadPositionInternalAsync();
+            LoadPositionInternal(); // 同步读取内存中的配置
+            return Task.CompletedTask;
         }
 
         public async Task<bool> MoveAxisAsync(AxisType axis, int step, bool isPositive, CancellationToken ct = default)
@@ -171,53 +177,58 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
 
         #endregion
 
-        #region 本地 JSON 持久化逻辑
+        #region 本地 JSON 持久化逻辑 (已迁移至 AppConfig)
 
-        private async Task LoadPositionInternalAsync()
+        private void LoadPositionInternal()
         {
-            if (!File.Exists(_storageFilePath)) return;
-            try
+            var config = _jsonConfigService.Load();
+
+            // 严谨的防空保护
+            if (config?.Platform3D == null) return;
+
+            CurrentPosition.X = config.Platform3D.X;
+            CurrentPosition.Y = config.Platform3D.Y;
+            CurrentPosition.Z = config.Platform3D.Z;
+
+            if (config.Platform3D.IsAtMin != null)
             {
-                string json = await File.ReadAllTextAsync(_storageFilePath);
-                var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-
-                CurrentPosition.X = root.GetProperty("X").GetInt32();
-                CurrentPosition.Y = root.GetProperty("Y").GetInt32();
-                CurrentPosition.Z = root.GetProperty("Z").GetInt32();
-
-                var minStatus = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<AxisType, bool>>(root.GetProperty("IsAtMin").GetRawText());
-                var maxStatus = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<AxisType, bool>>(root.GetProperty("IsAtMax").GetRawText());
-
-                if (minStatus != null) Status.IsAtMin = minStatus;
-                if (maxStatus != null) Status.IsAtMax = maxStatus;
+                Status.IsAtMin[AxisType.X] = config.Platform3D.IsAtMin.GetValueOrDefault("X", false);
+                Status.IsAtMin[AxisType.Y] = config.Platform3D.IsAtMin.GetValueOrDefault("Y", false);
+                Status.IsAtMin[AxisType.Z] = config.Platform3D.IsAtMin.GetValueOrDefault("Z", false);
             }
-            catch { /* 解析失败保留默认值 */ }
+
+            if (config.Platform3D.IsAtMax != null)
+            {
+                Status.IsAtMax[AxisType.X] = config.Platform3D.IsAtMax.GetValueOrDefault("X", false);
+                Status.IsAtMax[AxisType.Y] = config.Platform3D.IsAtMax.GetValueOrDefault("Y", false);
+                Status.IsAtMax[AxisType.Z] = config.Platform3D.IsAtMax.GetValueOrDefault("Z", false);
+            }
         }
 
-        private async Task SavePositionInternalAsync()
+        private Task SavePositionInternalAsync()
         {
-            try
-            {
-                string? dir = Path.GetDirectoryName(_storageFilePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
+            var config = _jsonConfigService.Load();
 
-                var data = new
-                {
-                    CurrentPosition.X,
-                    CurrentPosition.Y,
-                    CurrentPosition.Z,
-                    Status.IsAtMin,
-                    Status.IsAtMax
-                };
+            // 为了安全起见，防止读取旧的 config.json 时 Platform3D 为空
+            if (config.Platform3D == null)
+                config.Platform3D = new Platform3DConfig();
 
-                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(_storageFilePath, json);
-            }
-            catch { /* 写入冲突或异常不阻断控制流 */ }
+            config.Platform3D.X = CurrentPosition.X;
+            config.Platform3D.Y = CurrentPosition.Y;
+            config.Platform3D.Z = CurrentPosition.Z;
+
+            config.Platform3D.IsAtMin["X"] = Status.IsAtMin[AxisType.X];
+            config.Platform3D.IsAtMin["Y"] = Status.IsAtMin[AxisType.Y];
+            config.Platform3D.IsAtMin["Z"] = Status.IsAtMin[AxisType.Z];
+
+            config.Platform3D.IsAtMax["X"] = Status.IsAtMax[AxisType.X];
+            config.Platform3D.IsAtMax["Y"] = Status.IsAtMax[AxisType.Y];
+            config.Platform3D.IsAtMax["Z"] = Status.IsAtMax[AxisType.Z];
+
+            // 【修复这里】：将 config 传入 Save 方法
+            _ = Task.Run(() => _jsonConfigService.Save(config));
+
+            return Task.CompletedTask;
         }
 
         #endregion

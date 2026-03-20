@@ -30,6 +30,35 @@ namespace GD_ControlCenter_WPF.Models
         public double? SelectedPeakX { get; set; }
     }
 
+
+    /// <summary>
+    /// 三维平台专属配置实体类
+    /// </summary>
+    public class Platform3DConfig
+    {
+        // --- 坐标记忆 ---
+        public int X { get; set; } = 0;
+        public int Y { get; set; } = 0;
+        public int Z { get; set; } = 0;
+
+        // --- 限位状态记忆 ---
+        // 使用 string 作为键（"X", "Y", "Z"），以确保 JSON 序列化在各种环境下绝对安全
+        public Dictionary<string, bool> IsAtMin { get; set; } = new()
+        {
+            { "X", false }, { "Y", false }, { "Z", false }
+        };
+        public Dictionary<string, bool> IsAtMax { get; set; } = new()
+        {
+            { "X", false }, { "Y", false }, { "Z", false }
+        };
+
+        // --- 用户偏好记忆 ---
+        /// <summary>
+        /// 默认手动移动步长 (mm)
+        /// </summary>
+        public double DefaultStepDistance { get; set; } = 100.0;
+    }
+
     #endregion
 
     /// <summary>
@@ -172,6 +201,15 @@ namespace GD_ControlCenter_WPF.Models
         /// 脚本自动落盘的目标文件夹。
         /// </summary>
         public string ScriptSaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+        #endregion
+
+        #region 6. 三维平台配置记忆
+
+        /// <summary>
+        /// 三维平台参数配置集合
+        /// </summary>
+        public Platform3DConfig Platform3D { get; set; } = new Platform3DConfig();
 
         #endregion
     }

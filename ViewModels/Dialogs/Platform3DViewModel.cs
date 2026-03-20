@@ -1,14 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging; // 确保引用
-using GD_ControlCenter_WPF.Models.Messages; // 确保引用
+using CommunityToolkit.Mvvm.Messaging;
+using GD_ControlCenter_WPF.Models;
+using GD_ControlCenter_WPF.Models.Messages; 
 using GD_ControlCenter_WPF.Models.Platform3D;
+using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Platform3D;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
 using System.Windows;
 
 namespace GD_ControlCenter_WPF.ViewModels.Dialogs
@@ -17,6 +15,7 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
     {
         private readonly IPlatform3DService _platformService;
         private readonly PlatformCalibrationService _calibrationService;
+        private readonly JsonConfigService _jsonConfigService = null!;
         private readonly Action _closeAction;
 
         [ObservableProperty] private double _currentX;
@@ -46,14 +45,18 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         [ObservableProperty] private ObservableCollection<string> _peakWavelengths = new() { "253.65 (Hg)", "589.00 (Na)" };
         [ObservableProperty] private string _selectedPeakWavelength = string.Empty;
 
-        public Platform3DViewModel(IPlatform3DService platformService, PlatformCalibrationService calibrationService, Action closeAction)
+        public Platform3DViewModel(IPlatform3DService platformService, PlatformCalibrationService calibrationService, JsonConfigService jsonConfigService, Action closeAction)
         {
             _platformService = platformService;
             _calibrationService = calibrationService;
+            _jsonConfigService = jsonConfigService;
             _closeAction = closeAction;
 
             SelectedCalibrationMode = CalibrationModes.FirstOrDefault() ?? "";
             SelectedPeakWavelength = PeakWavelengths.FirstOrDefault() ?? "";
+
+            var config = _jsonConfigService?.Load();
+            StepDistance = config?.Platform3D?.DefaultStepDistance ?? 100.0;
 
             SyncPositionFromService();
 
@@ -142,6 +145,19 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
                 SyncPositionFromService();
                 IsCalibrating = false;
             }
+        }
+
+        public void SavePreferences()
+        {
+            var config = _jsonConfigService.Load();
+
+            if (config.Platform3D == null)
+                config.Platform3D = new Platform3DConfig();
+
+            config.Platform3D.DefaultStepDistance = StepDistance;
+
+            // 【修复第154行参数缺失】：将 config 传入 Save 方法
+            _jsonConfigService.Save(config);
         }
     }
 }

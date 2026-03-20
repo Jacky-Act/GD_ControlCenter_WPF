@@ -545,20 +545,27 @@ namespace GD_ControlCenter_WPF.ViewModels
         [RelayCommand]
         private void OpenPlatform3DWindow()
         {
-            // 1. 从全局容器中解析三维平台所需的服务
             var platformService = App.Services.GetRequiredService<IPlatform3DService>();
             var calibrationService = App.Services.GetRequiredService<PlatformCalibrationService>();
+            var jsonConfigService = App.Services.GetRequiredService<JsonConfigService>(); // 【新增】
 
             var window = new GD_ControlCenter_WPF.Views.Dialogs.Platform3DWindow();
 
-            // 2. 将解析出的依赖注入 ViewModel
-            window.DataContext = new GD_ControlCenter_WPF.ViewModels.Dialogs.Platform3DViewModel(
+            // 【修改】传入 jsonConfigService
+            var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.Platform3DViewModel(
                 platformService,
                 calibrationService,
+                jsonConfigService,
                 () => window.Close());
 
+            window.DataContext = vm;
             window.Owner = Application.Current.MainWindow;
+
+            // 阻断式打开弹窗
             window.ShowDialog();
+
+            // 【新增】弹窗关闭后，立即保存用户在此次操作中修改的偏好（如默认步长）
+            vm.SavePreferences();
         }
 
         /// <summary>
