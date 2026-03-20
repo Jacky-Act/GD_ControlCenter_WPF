@@ -75,4 +75,35 @@ namespace GD_ControlCenter_WPF.Models.Messages
         {
         }
     }
+
+    /// <summary>
+    /// 用于封装实时绘图坐标点的数据结构
+    /// </summary>
+    /// <param name="ElementName">元素名称 (如 Pb, Cd)</param>
+    /// <param name="Time">时间戳 (秒)</param>
+    /// <param name="Intensity">当前强度</param>
+    public record PlotPoint(string ElementName, double Time, double Intensity);
+
+    /// <summary>
+    /// 流动注射实时图表单点刷新消息。
+    /// 适用场景：Logic 层每解析出一帧数据，就发给 View 层进行时序图绘制。
+    /// </summary>
+    public class FlowInjectionPlotMessage : ValueChangedMessage<PlotPoint>
+    {
+        public FlowInjectionPlotMessage(PlotPoint value) : base(value)
+        {
+        }
+    }
+
+    /// <summary>
+    /// 切换图表显示元素的消息。
+    /// 适用场景：用户在 ViewModel 改变了下拉框选项，通知 View 层清空并重绘目标元素的曲线。
+    /// </summary>
+    public class SwitchPlotElementMessage : ValueChangedMessage<string>
+    {
+        // 这里的 value 就是新选中的元素名称 (例如 "Pb")
+        public SwitchPlotElementMessage(string value) : base(value)
+        {
+        }
+    }
 }
