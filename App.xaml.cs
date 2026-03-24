@@ -57,7 +57,7 @@ namespace GD_ControlCenter_WPF
         {
             try
             {
-                // 1. 触发记录模块的紧急静默保存 (数据安全第一)
+                // 1. 触发记录模块的紧急静默保存 
                 var timeSeriesVM = Services.GetRequiredService<TimeSeriesViewModel>();
                 timeSeriesVM.EmergencySave();
 
@@ -68,20 +68,20 @@ namespace GD_ControlCenter_WPF
                 var generalService = Services.GetRequiredService<GeneralDeviceService>();
                 var serialService = Services.GetRequiredService<ISerialPortService>();
 
-                // 2. 下发硬件关闭指令 (保证硬件降到安全状态)             
+                // 2. 下发硬件关闭指令        
                 generalService.ControlPeristalticPump(0, true, false);
                 Thread.Sleep(300);
                 hvService.SetHighVoltage(0, 0);
                 Thread.Sleep(300);
 
-                // 3. 将极其容易引发死锁的断开操作，丢入独立任务，并设置“最后通牒”时间
+                // 3. 将极其容易引发死锁的断开操作，丢入独立任务
                 var cleanupTask = Task.Run(() =>
                 {
                     try { SpectrometerManager.Instance.StopAll(); } catch { }
                     try { serialService.Close(); } catch { }
                 });
 
-                // 给这些底层驱动最多 1.5 秒的时间去优雅释放，时间一到不管有没有弄完，直接强制放行。
+                // 给底层驱动1.5 秒的释放，时间一到不管有没有弄完，直接强制放行。
                 cleanupTask.Wait(1500);
             }
             catch (Exception)
