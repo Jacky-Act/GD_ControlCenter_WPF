@@ -71,6 +71,23 @@ namespace GD_ControlCenter_WPF.Views.Pages
         /// </summary>
         private SpectralData? _cachedReferenceData = null;
 
+        // --- 触屏框选专用变量 ---
+        private Point _boxZoomStart;
+        private bool _isBoxZooming = false;
+
+        // 【新增 1】：用于强引用的 ViewModel 缓存
+        private GD_ControlCenter_WPF.ViewModels.ControlPanelViewModel? _vm;
+
+        // 【新增 2】：实时保存坐标的辅助方法
+        private void SaveLimitsToViewModel()
+        {
+            if (_vm != null && !_isFirstFrame)
+            {
+                var limits = SpecPlot.Plot.Axes.GetLimits();
+                _vm.SavedAxisLimits = new double[] { limits.Left, limits.Right, limits.Bottom, limits.Top };
+            }
+        }
+
         #endregion
 
         #region 2. 初始化与 UI 事件订阅
@@ -78,19 +95,28 @@ namespace GD_ControlCenter_WPF.Views.Pages
         public ControlPanelView()
         {
             InitializeComponent();
-
-            // 监听 DataContext 的绑定变化，用于注册消息和恢复状态
             this.DataContextChanged += OnDataContextChanged;
-
             _peakTrackingService = App.Services.GetRequiredService<PeakTrackingService>();
 
-            // 订阅图表右键事件，用于弹出“寻峰”菜单
             SpecPlot.PreviewMouseRightButtonDown += OnPlotRightClick;
             SetupCustomMenu();
-
-            // 【核心视觉优化】：X 轴边距设为 0（绝对贴边），Y 轴上下留白 10%。
-            // 这样用户双击滚轮自适应时，曲线会完美顶满左右两边，不会留有丑陋的白边。
             SpecPlot.Plot.Axes.Margins(0, 0.1);
+
+            // 【新增】：监听鼠标/单指触控事件，用于处理框选放大
+            SpecPlot.PreviewMouseLeftButtonDown += OnPlotLeftMouseDown;
+            SpecPlot.PreviewMouseMove += OnPlotMouseMove;
+            SpecPlot.PreviewMouseLeftButtonUp += OnPlotLeftMouseUp;
+
+            // 【核心修复 1：实时保存】：只要鼠标松开或滚轮滚动，立刻保存最新坐标！
+            SpecPlot.PreviewMouseUp += (s, e) => SaveLimitsToViewModel();
+            SpecPlot.PreviewMouseWheel += (s, e) =>
+            {
+                // 因为滚轮事件触发时 ScottPlot 还没算完缩放，所以使用后台线程稍微延时读取
+                Dispatcher.BeginInvoke(new Action(SaveLimitsToViewModel), System.Windows.Threading.DispatcherPriority.Background);
+            };
+
+            // 兜底保存
+            this.Unloaded += (s, e) => SaveLimitsToViewModel();
         }
 
         /// <summary>
@@ -162,6 +188,12 @@ namespace GD_ControlCenter_WPF.Views.Pages
         {
             WeakReferenceMessenger.Default.UnregisterAll(this);
 
+            // 【核心修复 2】：拿到 DataContext 的第一瞬间，就用 _vm 把它牢牢抓死
+            if (e.NewValue is GD_ControlCenter_WPF.ViewModels.ControlPanelViewModel vm)
+            {
+                _vm = vm;
+            }
+
             // 监听：硬件产生的新光谱数据
             WeakReferenceMessenger.Default.Register<SpectralDataMessage>(this, (r, m) =>
             {
@@ -229,20 +261,20 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 });
             });
 
-            // 【状态恢复策略】：防止页面来回切换时图表变白。主动向 ViewModel 索取历史缓存。
-            if (e.NewValue is GD_ControlCenter_WPF.ViewModels.ControlPanelViewModel vm)
+            // 恢复状态逻辑
+            if (_vm != null)
             {
                 bool needRefresh = false;
 
-                if (vm.IsReferenceFileLoaded && vm.LoadedReferenceData != null)
+                if (_vm.IsReferenceFileLoaded && _vm.LoadedReferenceData != null)
                 {
-                    _cachedReferenceData = vm.LoadedReferenceData;
+                    _cachedReferenceData = _vm.LoadedReferenceData;
                     needRefresh = true;
                 }
 
-                if (vm.LatestSpectralData != null)
+                if (_vm.LatestSpectralData != null)
                 {
-                    _currentData = vm.LatestSpectralData;
+                    _currentData = _vm.LatestSpectralData;
                     needRefresh = true;
                 }
 
@@ -251,9 +283,23 @@ namespace GD_ControlCenter_WPF.Views.Pages
                     Dispatcher.Invoke(() =>
                     {
                         RenderPlot(_currentData);
+
+                        // 【核心修复 3】：处理只加载了参考图，但没开硬件的情况
                         if (_currentData == null)
                         {
-                            SpecPlot.Plot.Axes.AutoScale();
+                            if (_vm.SavedAxisLimits != null)
+                            {
+                                SpecPlot.Plot.Axes.SetLimits(
+                                    _vm.SavedAxisLimits[0],
+                                    _vm.SavedAxisLimits[1],
+                                    _vm.SavedAxisLimits[2],
+                                    _vm.SavedAxisLimits[3]);
+                            }
+                            else
+                            {
+                                SpecPlot.Plot.Axes.AutoScale();
+                            }
+                            _isFirstFrame = false; // 标记首帧完成
                             SpecPlot.Refresh();
                         }
                     });
@@ -324,7 +370,6 @@ namespace GD_ControlCenter_WPF.Views.Pages
         {
             if (_isFirstFrame)
             {
-                // 第一帧到达时，提取硬件的波长首尾，设定死“最大观察视野”边界
                 double minWavelength = data.Wavelengths[0];
                 double maxWavelength = data.Wavelengths[^1];
 
@@ -339,15 +384,29 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 SpecPlot.Plot.Axes.Rules.Clear();
                 SpecPlot.Plot.Axes.Rules.Add(limitRule);
 
-                // 执行一次完美自适应
-                SpecPlot.Plot.Axes.AutoScale();
+                // 【核心修复 4】：使用强引用的 _vm 来恢复视野
+                if (_vm != null && _vm.SavedAxisLimits != null)
+                {
+                    SpecPlot.Plot.Axes.SetLimits(
+                        _vm.SavedAxisLimits[0],
+                        _vm.SavedAxisLimits[1],
+                        _vm.SavedAxisLimits[2],
+                        _vm.SavedAxisLimits[3]);
+                }
+                else
+                {
+                    SpecPlot.Plot.Axes.AutoScale();
+                }
+
                 _isFirstFrame = false;
             }
             else if (_requestAutoScale)
             {
-                // 响应用户的强行自适应请求
                 SpecPlot.Plot.Axes.AutoScale();
                 _requestAutoScale = false;
+
+                // 【核心修复 5】：如果用户主动点击了“自动范围”按钮，清空记忆，避免下次切页又变回去
+                if (_vm != null) _vm.SavedAxisLimits = null;
             }
         }
 
@@ -383,6 +442,95 @@ namespace GD_ControlCenter_WPF.Views.Pages
             double plotWidth = SpecPlot.ActualWidth;
             double nmPerPixel = plotWidth > 0 ? xAxisSpan / plotWidth : 0.1;
             return Math.Max(nmPerPixel * pixelCount, minTolerance);
+        }
+
+        private void OnPlotLeftMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (BtnTouchBoxZoom.IsChecked == true)
+            {
+                _isBoxZooming = true;
+                _boxZoomStart = e.GetPosition(SpecPlot);
+
+                // 【核心修复 1】：在 WPF 中，直接将 Preview 事件标记为已处理，
+                // 底层的 ScottPlot 就收不到左键按下的信号了，从而完美屏蔽原生的拖拽平移。
+                e.Handled = true;
+
+                // 初始化半透明红色选框的位置并显示
+                Canvas.SetLeft(ZoomRectangle, _boxZoomStart.X);
+                Canvas.SetTop(ZoomRectangle, _boxZoomStart.Y);
+                ZoomRectangle.Width = 0;
+                ZoomRectangle.Height = 0;
+                ZoomRectangle.Visibility = Visibility.Visible;
+
+                // 强制捕获光标
+                SpecPlot.CaptureMouse();
+            }
+        }
+
+        private void OnPlotMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isBoxZooming)
+            {
+                // 实时更新红色选框的长宽和起始点
+                Point current = e.GetPosition(SpecPlot);
+                double x = Math.Min(_boxZoomStart.X, current.X);
+                double y = Math.Min(_boxZoomStart.Y, current.Y);
+                double width = Math.Abs(_boxZoomStart.X - current.X);
+                double height = Math.Abs(_boxZoomStart.Y - current.Y);
+
+                Canvas.SetLeft(ZoomRectangle, x);
+                Canvas.SetTop(ZoomRectangle, y);
+                ZoomRectangle.Width = width;
+                ZoomRectangle.Height = height;
+            }
+        }
+
+        private void OnPlotLeftMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isBoxZooming)
+            {
+                _isBoxZooming = false;
+                SpecPlot.ReleaseMouseCapture();
+                ZoomRectangle.Visibility = Visibility.Collapsed;
+
+                // 屏蔽原生的鼠标松开事件
+                e.Handled = true;
+
+                Point end = e.GetPosition(SpecPlot);
+
+                // 防呆处理：过滤掉手指只是轻触的情况
+                if (Math.Abs(end.X - _boxZoomStart.X) > 15 && Math.Abs(end.Y - _boxZoomStart.Y) > 15)
+                {
+                    double dpiScaleX = 1.0, dpiScaleY = 1.0;
+                    PresentationSource source = PresentationSource.FromVisual(SpecPlot);
+                    if (source != null && source.CompositionTarget != null)
+                    {
+                        dpiScaleX = source.CompositionTarget.TransformToDevice.M11;
+                        dpiScaleY = source.CompositionTarget.TransformToDevice.M22;
+                    }
+
+                    float physicalX1 = (float)(_boxZoomStart.X * dpiScaleX);
+                    float physicalY1 = (float)(_boxZoomStart.Y * dpiScaleY);
+                    float physicalX2 = (float)(end.X * dpiScaleX);
+                    float physicalY2 = (float)(end.Y * dpiScaleY);
+
+                    // 使用 ScottPlot 5 的 API 获取真实坐标
+                    var coord1 = SpecPlot.Plot.GetCoordinates(physicalX1, physicalY1);
+                    var coord2 = SpecPlot.Plot.GetCoordinates(physicalX2, physicalY2);
+
+                    double xMin = Math.Min(coord1.X, coord2.X);
+                    double xMax = Math.Max(coord1.X, coord2.X);
+                    double yMin = Math.Min(coord1.Y, coord2.Y);
+                    double yMax = Math.Max(coord1.Y, coord2.Y);
+
+                    // 应用缩放
+                    SpecPlot.Plot.Axes.SetLimits(xMin, xMax, yMin, yMax);
+                    SpecPlot.Refresh();
+
+                    // 如果你需要坐标记忆功能（切换页面不丢失），取消注释这行：
+                    // SaveLimitsToViewModel();
+                }
+            }
         }
 
         #endregion

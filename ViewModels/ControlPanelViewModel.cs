@@ -102,6 +102,11 @@ namespace GD_ControlCenter_WPF.ViewModels
         /// </summary>
         public string ReferenceFileButtonText => IsReferenceFileLoaded ? "关闭文件" : "打开文件";
 
+        /// <summary>
+        /// 图表视窗缩放缓存 [XMin, XMax, YMin, YMax]，用于跨页面切换时的状态记忆。
+        /// </summary>
+        public double[]? SavedAxisLimits { get; set; }
+
         #endregion
 
         #region 3. 内存流转与持久化缓存 (Data Flow & Cache)
@@ -547,24 +552,24 @@ namespace GD_ControlCenter_WPF.ViewModels
         {
             var platformService = App.Services.GetRequiredService<IPlatform3DService>();
             var calibrationService = App.Services.GetRequiredService<PlatformCalibrationService>();
-            var jsonConfigService = App.Services.GetRequiredService<JsonConfigService>(); // 【新增】
+            var jsonConfigService = App.Services.GetRequiredService<JsonConfigService>();
+            // 【新增】获取寻峰服务
+            var peakTrackingService = App.Services.GetRequiredService<PeakTrackingService>();
 
             var window = new GD_ControlCenter_WPF.Views.Dialogs.Platform3DWindow();
 
-            // 【修改】传入 jsonConfigService
+            // 【修改】将 peakTrackingService 传入 ViewModel
             var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.Platform3DViewModel(
                 platformService,
                 calibrationService,
                 jsonConfigService,
+                peakTrackingService,
                 () => window.Close());
 
             window.DataContext = vm;
             window.Owner = Application.Current.MainWindow;
-
-            // 阻断式打开弹窗
             window.ShowDialog();
 
-            // 【新增】弹窗关闭后，立即保存用户在此次操作中修改的偏好（如默认步长）
             vm.SavePreferences();
         }
 

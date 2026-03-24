@@ -22,12 +22,20 @@
 
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1*" />
-                    <ColumnDefinition Width="5.6*" />
                     <ColumnDefinition Width="3.4*" />
+                    <ColumnDefinition Width="5.6*" />
+                    <ColumnDefinition Width="1.0*" />
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:Card Grid.Column="0" Margin="5,5,0,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                <components:DeviceControlCard Grid.Column="0" 
+                                              DataContext="{Binding Devices[1]}" 
+                                              Margin="5,5,0,2.5"/>
+
+                <components:DeviceControlCard Grid.Column="1" 
+                                              DataContext="{Binding Devices[0]}" 
+                                              Margin="5,5,0,2.5"/>
+
+                <materialDesign:Card Grid.Column="2" Margin="5,5,5,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
                     <Button Style="{StaticResource MaterialDesignFlatButton}"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             Height="Auto" Padding="0"
@@ -36,38 +44,30 @@
                                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </materialDesign:Card>
-
-                <components:DeviceControlCard Grid.Column="1" 
-                                              DataContext="{Binding Devices[0]}" 
-                                              Margin="5,5,0,2.5"/>
-
-                <components:DeviceControlCard Grid.Column="2" 
-                                              DataContext="{Binding Devices[1]}" 
-                                              Margin="5,5,5,2.5"/>
             </Grid>
 
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.65*" />
-                    <ColumnDefinition Width="1.65*" />
-                    <ColumnDefinition Width="1.65*" />
-                    <ColumnDefinition Width="1.65*" />
                     <ColumnDefinition Width="3.4*" />
+                    <ColumnDefinition Width="1.65*" />
+                    <ColumnDefinition Width="1.65*" />
+                    <ColumnDefinition Width="1.65*" />
+                    <ColumnDefinition Width="1.65*" />
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:Card Grid.Column="0" Margin="5,5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <components:BatteryIcon DataContext="{Binding BatteryVM}" 
-                                            HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
-                </materialDesign:Card>
+                <components:DeviceControlCard Grid.Column="0" 
+                                              DataContext="{Binding Devices[2]}" 
+                                              Margin="5,2.5,0,5"/>
 
                 <materialDesign:Card Grid.Column="1" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Button Style="{StaticResource MaterialDesignFlatButton}"
+                    <Button Command="{Binding OpenPlatform3DWindowCommand}"
+                            Style="{StaticResource MaterialDesignFlatButton}"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Height="Auto" Padding="0"
-                            Command="{Binding SamplingConfigCommand}">
-                        <TextBlock Text="采样配置" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}" 
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Height="Auto" Padding="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="Black"/>
+                            <TextBlock Text="三维平台" FontSize="20" FontWeight="Bold" Foreground="Black"/>
+                        </StackPanel>
                     </Button>
                 </materialDesign:Card>
 
@@ -77,13 +77,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="{DynamicResource PurpleThemeBrush}" Opacity="0.5"
-                                   HorizontalAlignment="Left" VerticalAlignment="Top"/>
-
+                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="{DynamicResource PurpleThemeBrush}" Opacity="0.5" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock x:Name="TxtCH1" Text="1" VerticalAlignment="Center" Margin="0,0,12,0" 
-                                       FontSize="14" FontWeight="Bold">
+                            <TextBlock x:Name="TxtCH1" Text="1" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="14" FontWeight="Bold">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource PurpleThemeBrush}"/>
@@ -107,8 +103,7 @@
                                 </materialDesign:ToggleButtonAssist.OnContent>
                             </ToggleButton>
 
-                            <TextBlock x:Name="TxtCH2" Text="2" VerticalAlignment="Center" Margin="12,0,0,0" 
-                                       FontSize="14" FontWeight="Bold">
+                            <TextBlock x:Name="TxtCH2" Text="2" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="14" FontWeight="Bold">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{StaticResource PurpleThemeBrush}"/>
@@ -126,24 +121,21 @@
                     </Grid>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8"
-                     materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Button Command="{Binding OpenPlatform3DWindowCommand}"
-                            Style="{StaticResource MaterialDesignFlatButton}"
+                <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Button Style="{StaticResource MaterialDesignFlatButton}"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Height="Auto" Padding="0">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" 
-                                     Foreground="Black"/>
-                            <TextBlock Text="三维平台" FontSize="20" FontWeight="Bold" 
-                       Foreground="Black"/>
-                        </StackPanel>
+                            Height="Auto" Padding="0"
+                            Command="{Binding SamplingConfigCommand}">
+                        <TextBlock Text="采样配置" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}" 
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </materialDesign:Card>
 
-                <components:DeviceControlCard Grid.Column="4" 
-                                  DataContext="{Binding Devices[2]}" 
-                                  Margin="5,2.5,5,5"/>
+                <materialDesign:Card Grid.Column="4" Margin="5,2.5,5,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <components:BatteryIcon DataContext="{Binding BatteryVM}" 
+                                            HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                </materialDesign:Card>
             </Grid>
         </Grid>
 
@@ -162,42 +154,51 @@
                 <Border Grid.Row="0" Background="{DynamicResource MaterialDesignPaper}" Margin="5,2,2.5,2" CornerRadius="4">
                     <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="15,0,20,0">
                             <TextBlock Text="积分时间:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
                             <Button Style="{StaticResource MaterialDesignFlatButton}" 
                                     Content="{Binding SpecVM.IntegrationTimeMs, StringFormat={}{0} ms}"
                                     Command="{Binding OpenIntegrationTimeConfigCommand}"
-                                    Width="90" Height="28" 
-                                    Padding="5,0,0,0"
-                                    HorizontalContentAlignment="Left" />
+                                    Width="90" Height="28" Padding="5,0,0,0" HorizontalContentAlignment="Left" />
                         </StackPanel>
 
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,15,0">
                             <TextBlock Text="平均次数:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
                             <Button Style="{StaticResource MaterialDesignFlatButton}" 
                                     Content="{Binding SpecVM.AveragingCount}"
                                     Command="{Binding OpenAveragingCountConfigCommand}"
-                                    Width="90" Height="28" 
-                                    Padding="5,0,0,0"
-                                    HorizontalContentAlignment="Left" />
+                                    Width="90" Height="28" Padding="5,0,0,0" HorizontalContentAlignment="Left" />
                         </StackPanel>
 
                         <TextBlock Grid.Column="2" Text="{Binding StatusInfo}" 
                                    VerticalAlignment="Center" HorizontalAlignment="Center" 
                                    FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+                            <TextBlock Text="触屏框选" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="Bold" Opacity="0.7"/>
+                            <ToggleButton x:Name="BtnTouchBoxZoom" 
+                                          Style="{StaticResource MaterialDesignSwitchToggleButton}" 
+                                          ToolTip="开启后，单指在图表上滑动即可框选放大" />
+                        </StackPanel>
                     </Grid>
                 </Border>
 
                 <Border Grid.Row="1" Background="Black" Margin="5,0,2.5,5" CornerRadius="8">
-                    <ScottPlot:WpfPlot x:Name="SpecPlot" />
+                    <Grid>
+                        <ScottPlot:WpfPlot x:Name="SpecPlot" />
+
+                        <Canvas x:Name="ZoomCanvas" IsHitTestVisible="False" ClipToBounds="True">
+                            <Rectangle x:Name="ZoomRectangle" Stroke="#FF4081" StrokeThickness="2" Fill="#33FF4081" Visibility="Collapsed" />
+                        </Canvas>
+                    </Grid>
                 </Border>
             </Grid>
-
 
             <Border Grid.Column="1" Margin="2.5,0,5,5">
                 <UniformGrid Columns="1" Rows="6">

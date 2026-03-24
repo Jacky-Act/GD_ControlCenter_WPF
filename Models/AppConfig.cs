@@ -114,6 +114,18 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public bool IsSyringeOutput { get; set; } = true;
 
+        // ================== 点火 ==================
+
+        /// <summary>
+        /// 异常熄火自动重燃使能。检测到意外熄火时将自动触发点火序列。
+        /// </summary>
+        public bool IsAutoReigniteEnabled { get; set; } = false;
+
+        /// <summary>
+        /// 点火延时时间。1.0-5.0秒。控制蠕动泵全速运行的时间
+        /// </summary>
+        public double IgnitionDelaySeconds { get; set; } = 1.0;
+
         #endregion
 
         #region 3. 光谱仪与采样控制参数
@@ -136,11 +148,6 @@ namespace GD_ControlCenter_WPF.Models
         /// 全局硬件连接使能。若为 False，软件将不尝试连接和初始化光谱仪 SDK。
         /// </summary>
         public bool IsSpectrometerEnabled { get; set; } = true;
-
-        /// <summary>
-        /// 异常熄火自动重燃使能。检测到意外熄火时将自动触发点火序列。
-        /// </summary>
-        public bool IsAutoReigniteEnabled { get; set; } = false;
 
         /// <summary>
         /// 光谱仪积分时间（Integration Time, ms）。直接决定曝光量。
@@ -210,6 +217,25 @@ namespace GD_ControlCenter_WPF.Models
         /// 三维平台参数配置集合
         /// </summary>
         public Platform3DConfig Platform3D { get; set; } = new Platform3DConfig();
+
+        #endregion
+
+        #region 7. UI 界面状态记忆
+
+        /// <summary>
+        /// 主窗口非最大化时的宽度。默认给一个合理的工控机初始尺寸。
+        /// </summary>
+        public double MainWindowWidth { get; set; } = 1280;
+
+        /// <summary>
+        /// 主窗口非最大化时的高度。
+        /// </summary>
+        public double MainWindowHeight { get; set; } = 800;
+
+        /// <summary>
+        /// 主窗口是否处于最大化状态。
+        /// </summary>
+        public bool IsMainWindowMaximized { get; set; } = false;
 
         #endregion
     }

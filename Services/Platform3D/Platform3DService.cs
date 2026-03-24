@@ -150,9 +150,6 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
             if (Status.IsAtMin[axis] && !isPositive) return false;
             if (Status.IsAtMax[axis] && isPositive) return false;
 
-            if (axis == AxisType.Z && !isPositive && (CurrentPosition.Z - step) < PlatformLimits.ZAxisMinLimit)
-                return false;
-
             return true;
         }
 

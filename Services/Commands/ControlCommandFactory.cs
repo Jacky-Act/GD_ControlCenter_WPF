@@ -163,18 +163,19 @@ namespace GD_ControlCenter_WPF.Services.Commands
 
         /// <summary>
         /// 生成点火功能命令
-        /// 逻辑：蠕动泵逆时针启动，固定点火时间 1000ms；数据格式：00 01 延时低字节 延时高字节
+        /// 蠕动泵逆时针启动；数据格式：00 01 延时低字节 延时高字节
         /// </summary>
-        /// <returns>符合控制协议的 13 字节指令包</returns>
-        public static byte[] CreateIgnition()
+        /// <param name="delayMs">点火延时时间 (毫秒)，安全范围 1000 - 5000</param>
+        public static byte[] CreateIgnition(int delayMs)
         {
-            const int fireTimeMs = 1000; // 固定点火时间为 1000ms
+            // 强行把异常值卡在安全范围内
+            int safeDelay = Math.Clamp(delayMs, 1000, 5000);
 
             byte[] data = new byte[4];
             data[0] = 0x00;
             data[1] = 0x00;
-            data[2] = (byte)(fireTimeMs % 256); // 1000 的低位为 0xE8
-            data[3] = (byte)(fireTimeMs / 256); // 1000 的高位为 0x03
+            data[2] = (byte)(safeDelay % 256); // 延时低字节
+            data[3] = (byte)(safeDelay / 256); // 延时高字节
 
             return PackFrame(DeviceAddr.Controller, CommandType.PC_To_Controller, FunctionCode.Ignition, data);
         }

@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d" 
-             d:DesignHeight="600" d:DesignWidth="800"
+             d:DesignHeight="700" d:DesignWidth="800"
              Background="{DynamicResource MaterialDesignPaper}"
              TextElement.Foreground="{DynamicResource MaterialDesignBody}">
 
@@ -121,6 +121,40 @@
                                 Command="{Binding BrowseTimeSeriesDirectoryCommand}" 
                                 Style="{StaticResource MaterialDesignOutlinedButton}"
                                 Width="90" Height="30"/>
+                    </Grid>
+
+                    <Separator Margin="0,8,0,12" Style="{StaticResource MaterialDesignLightSeparator}" Opacity="0.3"/>
+
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Text="点火持续时间 (秒)" FontSize="15" />
+                            <TextBlock Text="设定单次点火指令的物理延时长度 (1.0 - 5.0s)" FontSize="11" Opacity="0.6" Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBox Text="{Binding IgnitionDelaySeconds, StringFormat={}{0:F1}, UpdateSourceTrigger=PropertyChanged}" 
+                                     Width="45" TextAlignment="Center" VerticalAlignment="Center" 
+                                     FontSize="16" FontWeight="Bold" Margin="0,0,8,0"
+                                     materialDesign:TextFieldAssist.UnderlineBrush="{DynamicResource PrimaryHueMidBrush}"/>
+
+                            <StackPanel VerticalAlignment="Center">
+                                <RepeatButton Command="{Binding IncreaseIgnitionDelayCommand}" 
+                                              Style="{StaticResource MaterialDesignIconButton}" 
+                                              Width="24" Height="24" Padding="0" ToolTip="增加">
+                                    <materialDesign:PackIcon Kind="ChevronUp" Width="18" Height="18" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                                </RepeatButton>
+                                <RepeatButton Command="{Binding DecreaseIgnitionDelayCommand}" 
+                                              Style="{StaticResource MaterialDesignIconButton}" 
+                                              Width="24" Height="24" Padding="0" ToolTip="减少" Margin="0,2,0,0">
+                                    <materialDesign:PackIcon Kind="ChevronDown" Width="18" Height="18" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                                </RepeatButton>
+                            </StackPanel>
+                        </StackPanel>
                     </Grid>
 
                 </StackPanel>

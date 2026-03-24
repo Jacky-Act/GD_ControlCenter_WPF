@@ -33,6 +33,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         private bool _isAutoReigniteEnabled;
 
         [ObservableProperty]
+        private double _ignitionDelaySeconds;
+
+        [ObservableProperty]
         private string _singleSaveExportPath = string.Empty;
 
         [ObservableProperty]
@@ -49,6 +52,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             var config = _configService.Load();
             IsSpectrometerEnabled = config.IsSpectrometerEnabled;
             IsAutoReigniteEnabled = config.IsAutoReigniteEnabled;
+            IgnitionDelaySeconds = config.IgnitionDelaySeconds;
             // 【统一风格】：如果没设置过单次保存路径，UI 上也默认显示桌面
             SingleSaveExportPath = string.IsNullOrWhiteSpace(config.SingleSaveExportPath)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
@@ -99,6 +103,20 @@ namespace GD_ControlCenter_WPF.ViewModels
             var config = _configService.Load();
             config.IsAutoReigniteEnabled = value;
             _configService.Save(config);
+        }
+
+        // 【新增】拦截用户输入或调整时的数据变更，自动保存并限制范围
+        partial void OnIgnitionDelaySecondsChanged(double value)
+        {
+            // 安全限制：1.0 到 5.0 之间
+            if (value < 1.0) IgnitionDelaySeconds = 1.0;
+            else if (value > 5.0) IgnitionDelaySeconds = 5.0;
+            else
+            {
+                var config = _configService.Load();
+                config.IgnitionDelaySeconds = Math.Round(value, 1); // 保留1位小数
+                _configService.Save(config);
+            }
         }
 
         /// <summary>
@@ -226,6 +244,20 @@ namespace GD_ControlCenter_WPF.ViewModels
                 config.TimeSeriesSaveDirectory = TimeSeriesSaveDirectory;
                 _configService.Save(config);
             }
+        }
+
+        // 【新增】给“上箭头”绑定的命令
+        [RelayCommand]
+        private void IncreaseIgnitionDelay()
+        {
+            IgnitionDelaySeconds = Math.Round(Math.Min(5.0, IgnitionDelaySeconds + 0.1), 1);
+        }
+
+        // 【新增】给“下箭头”绑定的命令
+        [RelayCommand]
+        private void DecreaseIgnitionDelay()
+        {
+            IgnitionDelaySeconds = Math.Round(Math.Max(1.0, IgnitionDelaySeconds - 0.1), 1);
         }
     }
 }

@@ -12,13 +12,14 @@ namespace GD_ControlCenter_WPF.ViewModels
         private readonly GeneralDeviceService _generalService;
         private readonly JsonConfigService _configService;
 
+        // 保留原有的属性防报错
         [ObservableProperty]
         private string _settingSpeed = "0";
 
         [ObservableProperty]
         private string _directionText = "前向";
 
-        // 【新增】暴露给外部（如拟合曲线采样时）获取的实时流速
+        // 【新增】：用于主卡片显示的流速
         [ObservableProperty]
         private double _currentFlowRate;
 
@@ -26,39 +27,31 @@ namespace GD_ControlCenter_WPF.ViewModels
         {
             _generalService = generalService;
             _configService = configService;
-
             DisplayName = "蠕动泵";
-
-            // 初始化显示
             UpdateUIFromConfig();
         }
 
-        /// <summary>
-        /// 从配置文件同步 UI 显示
-        /// </summary>
         private void UpdateUIFromConfig()
         {
             var config = _configService.Load();
             SettingSpeed = $"{config.LastPumpSpeed}";
             DirectionText = config.IsPumpClockwise ? "后向" : "前向";
 
-            // 【新增】根据最新配置计算流速：流速 = K * 转速 + B (保留2位小数)
+            // 【核心修改】：计算流速，前端卡片会自动刷新显示这个值
             CurrentFlowRate = Math.Round(config.PumpFlowRateK * config.LastPumpSpeed + config.PumpFlowRateB, 2);
         }
 
-        /// <summary>
-        /// 点击卡片左侧：弹出设置窗口
-        /// </summary>
         protected override void ExecuteOpenDetail()
         {
             var currentConfig = _configService.Load();
             var window = new PeristalticPumpSettingWindow();
 
             var vm = new PeristalticPumpSettingViewModel(_generalService, _configService, currentConfig, this.IsRunning, () =>
-                {
-                    window.Close();
-                    UpdateUIFromConfig(); // 关闭窗口后刷新卡片上的预设值显示
-                }
+            {
+                window.Close();
+                // 弹窗关闭时，重新读取配置并计算最新的流速
+                UpdateUIFromConfig();
+            }
             );
 
             window.DataContext = vm;
@@ -66,25 +59,14 @@ namespace GD_ControlCenter_WPF.ViewModels
             window.ShowDialog();
         }
 
-        /// <summary>
-        /// 当点击右侧“启动/停止”按钮时触发
-        /// </summary>
         protected override void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             base.OnPropertyChanged(e);
 
-            // 检查是否是 IsRunning 属性发生了变化
             if (e.PropertyName == nameof(IsRunning))
             {
-                // 每次切换开关时，重新读取最新的配置参数
                 var config = _configService.Load();
-
-                // 下发指令到硬件
-                _generalService.ControlPeristalticPump(
-                    (short)config.LastPumpSpeed,
-                    config.IsPumpClockwise,
-                    IsRunning // 这里的 IsRunning 就是改变后的值
-                );
+                _generalService.ControlPeristalticPump((short)config.LastPumpSpeed, config.IsPumpClockwise, IsRunning);
             }
         }
     }

@@ -172,7 +172,7 @@ namespace GD_ControlCenter_WPF.Services
                             _serialPort.Write(commandToSend, 0, commandToSend.Length);
 
                             // 强制安全间隔：确保下位机有充足时间处理上一帧（这里设为30ms）
-                            await Task.Delay(30, token);
+                            await Task.Delay(200, token);
                         }
                         catch (Exception)
                         {

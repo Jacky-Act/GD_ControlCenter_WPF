@@ -31,8 +31,8 @@ namespace GD_ControlCenter_WPF.Services
         {
             _serialPortService = serialPortService;
 
-            // 初始化轮询定时器：建议间隔 30000ms
-            _pollingTimer = new System.Timers.Timer(3000);
+            // 初始化轮询定时器：间隔 30s
+            _pollingTimer = new System.Timers.Timer(30000);
             _pollingTimer.Elapsed += OnPollingTimerElapsed;
             _pollingTimer.AutoReset = true;
 
@@ -50,8 +50,20 @@ namespace GD_ControlCenter_WPF.Services
         {
             if (!_pollingTimer.Enabled)
             {
-                _pollingTimer.Start();
-                SendQuery(); // 启动时立即查询一次
+                _pollingTimer.Start(); // 启动 30 秒的底层轮询定时器
+
+                SendQuery(); // 第 1 次查询：启动时立即执行
+
+                // 第 2 次查询：利用后台任务延时 1 秒后执行
+                Task.Run(async () =>
+                {
+                    await Task.Delay(1000);
+                    // 再次检查定时器状态，防止在这 1 秒内用户触发了 Stop() 关闭了连接
+                    if (_pollingTimer.Enabled)
+                    {
+                        SendQuery();
+                    }
+                });
             }
         }
 

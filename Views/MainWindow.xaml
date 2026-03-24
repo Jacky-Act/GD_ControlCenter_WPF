@@ -10,7 +10,7 @@
         mc:Ignorable="d"
         Title="GD Control Center" 
         x:Name="RootWindow"
-        Icon="pack://application:,,,/Assets/AppIcon.png"
+        Icon="pack://application:,,,/Assets/AppIcon.ico"
         Height="450" Width="800"
         ResizeMode="CanResize"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"

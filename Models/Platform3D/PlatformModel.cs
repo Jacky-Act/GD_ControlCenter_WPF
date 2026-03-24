@@ -95,9 +95,6 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
         public const int MaxStepY = 7600;
         public const int MaxStepZ = 4600;
 
-        // Z 轴特殊安全限制：防止探针撞击底盘
-        public const int ZAxisMinLimit = -2000;
-
         // 默认有效步长范围
         public const int MinValidStep = 1;
         public const int MaxValidStep = 16500;

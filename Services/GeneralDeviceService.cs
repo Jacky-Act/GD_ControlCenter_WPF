@@ -17,10 +17,12 @@ namespace GD_ControlCenter_WPF.Services
     public class GeneralDeviceService
     {
         private readonly ISerialPortService _serialPortService;
+        private readonly JsonConfigService _configService;
 
-        public GeneralDeviceService(ISerialPortService serialPortService)
+        public GeneralDeviceService(ISerialPortService serialPortService, JsonConfigService configService)
         {
             _serialPortService = serialPortService;
+            _configService = configService;
         }
 
         /// <summary>
@@ -68,11 +70,17 @@ namespace GD_ControlCenter_WPF.Services
 
         /// <summary>
         /// 触发点火功能。
-        /// 调用封装好的 1000ms 延时点火指令。
+        /// 读取用户设置的秒数，转换为毫秒后发送指令。
         /// </summary>
         public void Fire()
         {
-            var cmd = ControlCommandFactory.CreateIgnition();
+            // 每次点火前实时读取最新配置
+            var config = _configService.Load();
+
+            // 将秒 (例如 1.5) 转换为毫秒 (1500)
+            int delayMs = (int)(config.IgnitionDelaySeconds * 1000);
+
+            var cmd = ControlCommandFactory.CreateIgnition(delayMs);
             _serialPortService.Send(cmd);
         }
     }

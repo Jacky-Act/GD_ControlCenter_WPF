@@ -80,8 +80,8 @@
             </Grid>
         </StackPanel>
 
-        <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Top">
-            <TextBlock Text="自动化校准序列" Style="{StaticResource MaterialDesignBody2TextBlock}" Opacity="0.6" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right">
+            <TextBlock Text="自动化校准" Style="{StaticResource MaterialDesignBody2TextBlock}" Opacity="0.6" Margin="0,0,0,12"/>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -89,7 +89,7 @@
                 </Grid.ColumnDefinitions>
 
                 <ComboBox Grid.Column="0" ItemsSource="{Binding PeakWavelengths}" SelectedItem="{Binding SelectedPeakWavelength}"
-                          materialDesign:HintAssist.Hint="目标波长 (nm)" Width="140" HorizontalAlignment="Left" Margin="0,0,15,0" VerticalAlignment="Center"
+                          materialDesign:HintAssist.Hint="目标波长 (nm)" Width="120" HorizontalAlignment="Left" Margin="0,0,15,0" VerticalAlignment="Center"
                           Style="{StaticResource MaterialDesignFloatingHintComboBox}"/>
 
                 <Button Grid.Column="1" Command="{Binding StartCalibrationCommand}" Content="开始" 

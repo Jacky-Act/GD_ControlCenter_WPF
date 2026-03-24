@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text.Json;
 using GD_ControlCenter_WPF.Models;
 
@@ -10,8 +11,20 @@ namespace GD_ControlCenter_WPF.Services
 
         public JsonConfigService()
         {
-            // 配置文件存储在程序运行目录下
-            _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+            // 1. 获取当前用户的 Local AppData 目录 (例如: C:\Users\用户名\AppData\Local)
+            string appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            // 2. 为当前软件创建一个专属数据文件夹
+            string myAppFolder = Path.Combine(appDataFolder, "GD_ControlCenter");
+
+            // 3. 确保文件夹存在，不存在则自动创建
+            if (!Directory.Exists(myAppFolder))
+            {
+                Directory.CreateDirectory(myAppFolder);
+            }
+
+            // 4. 最终的配置文件物理路径
+            _filePath = Path.Combine(myAppFolder, "config.json");
         }
 
         // 读取配置

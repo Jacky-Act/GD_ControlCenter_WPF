@@ -9,6 +9,7 @@
     <UseWPF>true</UseWPF>
     <PlatformTarget>x86</PlatformTarget>
 	<NoWarn>$(NoWarn);NU1701</NoWarn>
+	<ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\AppIcon.ico" />
     <Content Include="Libs\avaspec.dll">
 	    <Link>avaspec.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
