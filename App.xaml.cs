@@ -57,31 +57,32 @@ namespace GD_ControlCenter_WPF
         {
             try
             {
-                // 【新增】：1. 触发两个记录模块的紧急静默保存 (同步阻塞，确保存完再关硬件)
+                // 1. 触发记录模块的紧急静默保存 (数据安全第一)
                 var timeSeriesVM = Services.GetRequiredService<TimeSeriesViewModel>();
                 timeSeriesVM.EmergencySave();
 
                 var controlPanelVM = Services.GetRequiredService<ControlPanelViewModel>();
                 controlPanelVM.EmergencySave();
 
-                // 从 IoC 容器中获取需要的服务
                 var hvService = Services.GetRequiredService<HighVoltageService>();
                 var generalService = Services.GetRequiredService<GeneralDeviceService>();
                 var serialService = Services.GetRequiredService<ISerialPortService>();
 
-                // 下发硬件关闭指令               
-                generalService.ControlPeristalticPump(0, true, false);  // 关闭蠕动泵 (转速 0，状态 false 即停止)
-                Thread.Sleep(500);
-                hvService.SetHighVoltage(0, 0); // 关闭高压电源 (电压 0，电流 0)
-                Thread.Sleep(500);
-
-                SpectrometerManager.Instance.StopAll(); // 安全停止光谱仪数据采集
-
-                // 等待异步队列清空，确保指令发送完毕
+                // 2. 下发硬件关闭指令 (保证硬件降到安全状态)             
+                generalService.ControlPeristalticPump(0, true, false);
+                Thread.Sleep(300);
+                hvService.SetHighVoltage(0, 0);
                 Thread.Sleep(300);
 
-                // 安全关闭串口
-                serialService.Close();
+                // 3. 将极其容易引发死锁的断开操作，丢入独立任务，并设置“最后通牒”时间
+                var cleanupTask = Task.Run(() =>
+                {
+                    try { SpectrometerManager.Instance.StopAll(); } catch { }
+                    try { serialService.Close(); } catch { }
+                });
+
+                // 给这些底层驱动最多 1.5 秒的时间去优雅释放，时间一到不管有没有弄完，直接强制放行。
+                cleanupTask.Wait(1500);
             }
             catch (Exception)
             {
@@ -89,46 +90,10 @@ namespace GD_ControlCenter_WPF
             finally
             {
                 base.OnExit(e);
+
+                // 调用系统底层的 Kill() 指令，从 Windows 任务管理器级别直接将当前进程“斩首”。
+                System.Diagnostics.Process.GetCurrentProcess().Kill();
             }
         }
-
-        //protected override void OnExit(ExitEventArgs e)
-        //{
-        //    try
-        //    {
-        //        // 1. 先保存数据（这是最耗时的，放在最前）
-        //        Services.GetRequiredService<TimeSeriesViewModel>().EmergencySave();
-        //        Services.GetRequiredService<ControlPanelViewModel>().EmergencySave();
-
-        //        var hvService = Services.GetRequiredService<HighVoltageService>();
-        //        var generalService = Services.GetRequiredService<GeneralDeviceService>();
-        //        var serialService = Services.GetRequiredService<ISerialPortService>();
-
-        //        // 2. 依次下发指令，中间手动增加物理间隙
-        //        // 关闭高压
-        //        hvService.SetHighVoltage(0, 0);
-        //        Thread.Sleep(100); // 关键：给串口缓冲留 100ms
-
-        //        // 关闭蠕动泵（建议检查此方法内部是否是异步的，如果是，请调用它的同步版本或使用 .Wait()）
-        //        generalService.ControlPeristalticPump(0, true, false);
-        //        Thread.Sleep(150); // 蠕动泵可能协议较长，多留一点时间
-
-        //        // 停止光谱仪
-        //        SpectrometerManager.Instance.StopAll();
-        //        Thread.Sleep(50);
-
-        //        // 3. 确保指令全部发出后再关串口
-        //        serialService.Close();
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // 记录一下异常，方便调试
-        //        System.Diagnostics.Debug.WriteLine($"退出异常: {ex.Message}");
-        //    }
-        //    finally
-        //    {
-        //        base.OnExit(e);
-        //    }
-        //}
     }
 }

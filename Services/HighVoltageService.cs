@@ -190,9 +190,10 @@ namespace GD_ControlCenter_WPF.Services
                     OnPropertyChanged(nameof(Current));
                     OnPropertyChanged(nameof(IsOnline));
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // 异常处理逻辑
+                    // 临时加上弹窗，打包去工控机跑。如果弹窗了，拍照发给我！
+                    System.Windows.MessageBox.Show($"电源解析异常: {ex.Message}\n{ex.StackTrace}");
                 }
             }
         }

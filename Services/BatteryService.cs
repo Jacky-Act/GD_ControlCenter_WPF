@@ -124,7 +124,11 @@ namespace GD_ControlCenter_WPF.Services
                     // 解析完成后触发事件，通知 ViewModel 更新
                     StatusUpdated?.Invoke(this, EventArgs.Empty);
                 }
-                catch (Exception) { }
+                catch (Exception ex)
+                {
+                    // 临时加上弹窗，打包去工控机跑。如果弹窗了，拍照发给我！
+                    System.Windows.MessageBox.Show($"电池解析异常: {ex.Message}\n{ex.StackTrace}");
+                }
             }
         }
 

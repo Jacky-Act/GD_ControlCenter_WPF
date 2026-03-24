@@ -122,20 +122,44 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
                     m_UserFriendlyName = Config.DeviceName
                 };
 
-                // 向底层发送激活指令
+                // 1. 向底层发送激活指令，获取硬件句柄
                 int handle = AvantesSdk.AVS_Activate(ref identity);
-
-                // ERR_SUCCESS 通常为 0 或正数，负数表示激活失败
                 if (handle < AvantesSdk.ERR_SUCCESS) return false;
 
+                // 2. 【核心优化】：智能协商 ADC 分辨率模式
+                // 优先尝试开启 16-bit 满血模式 (0-65535)
+                int resHighRes = AvantesSdk.AVS_UseHighResAdc(handle, true);
+                if (resHighRes == AvantesSdk.ERR_SUCCESS)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[设备 {Config.SerialNumber}] 成功开启 16-bit 高分辨率模式。");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[设备 {Config.SerialNumber}] 开启 16-bit 失败，尝试显式降级到 14-bit...");
+
+                    // 尝试显式锁定为 14-bit 兼容模式 (0-16383)
+                    int resLowRes = AvantesSdk.AVS_UseHighResAdc(handle, false);
+
+                    // 如果连 14-bit 都显式设置失败，说明通信异常或硬件极度老旧不支持此指令
+                    if (resLowRes != AvantesSdk.ERR_SUCCESS)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[致命错误] 设备 {Config.SerialNumber} 切换 ADC 模式发生严重异常(错误码: {resLowRes})，初始化强制中止。");
+
+                        // 初始化宣告失败，必须立刻把刚刚拿到的 handle 交还给操作系统，防止句柄泄露锁死端口！
+                        AvantesSdk.AVS_Deactivate(handle);
+                        return false;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"[设备 {Config.SerialNumber}] 已成功回退并锁定为 14-bit 模式。");
+                }
+
+                // 3. 基础信息装载
                 Config.DeviceHandle = handle;
                 Config.IsConnected = true;
 
-                // 动态获取当前设备支持的物理像素数（通常为 2048 或 4096）
+                // 动态获取当前设备支持的物理像素数
                 ushort pixels = 0;
                 AvantesSdk.AVS_GetNumPixels(handle, ref pixels);
-
-                // 设置最大的结束像素索引（因为索引从 0 开始，所以减 1）
                 Config.StopPixel = (ushort)(pixels - 1);
 
                 return true;

@@ -191,7 +191,7 @@ namespace GD_ControlCenter_WPF.ViewModels
         /// <summary>
         /// 状态机常量：挽救序列的最大容忍尝试次数。超过此次数将强制切断高压和泵。
         /// </summary>
-        private const int MaxReigniteAttempts = 3;
+        private const int MaxReigniteAttempts = 5;
 
         #endregion
 

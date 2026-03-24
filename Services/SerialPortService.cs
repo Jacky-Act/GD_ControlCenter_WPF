@@ -88,24 +88,71 @@ namespace GD_ControlCenter_WPF.Services
             }
         }
 
+        ///// <summary>
+        ///// 关闭串口并释放资源
+        ///// </summary>
+        //public void Close()
+        //{
+        //    if (_serialPort != null)
+        //    {
+        //        _serialPort.DataReceived -= OnSerialDataReceived;
+        //        if (_serialPort.IsOpen) _serialPort.Close();
+        //        //_serialPort.Close();
+        //        _serialPort.Dispose();
+        //        _serialPort = null;
+        //    }
+
+        //    // 清空未发送的队列指令，避免下次打开时堆积发送
+        //    _highPriorityQueue.Clear();
+        //    _lowPriorityQueue.Clear();
+
+        //    // 核心：更新内部状态并对外触发事件
+        //    UpdateConnectionStatus(false, null);
+        //}
+
         /// <summary>
-        /// 关闭串口并释放资源
+        /// 关闭串口并释放资源 (防死锁、防句柄遗留终极版)
         /// </summary>
         public void Close()
         {
             if (_serialPort != null)
             {
+                // 1. 立即注销数据接收事件，切断数据源
                 _serialPort.DataReceived -= OnSerialDataReceived;
-                if (_serialPort.IsOpen) _serialPort.Close();
-                _serialPort.Dispose();
+
+                var spToClose = _serialPort;
                 _serialPort = null;
+
+                // 2. 将高危的关闭操作放入后台 Task，防止 UI 线程死锁
+                var closeTask = Task.Run(() =>
+                {
+                    try
+                    {
+                        if (spToClose.IsOpen)
+                        {
+                            // 必须丢弃缓存并显式调用 Close，明确告诉底层驱动释放物理句柄！
+                            spToClose.DiscardInBuffer();
+                            spToClose.DiscardOutBuffer();
+                            spToClose.Close();
+                        }
+                        spToClose.Dispose();
+                    }
+                    catch (Exception)
+                    {
+                        // 忽略关闭时的底层 IO 异常
+                    }
+                });
+
+                // 3. 【核心奥义】：主线程挂起等待后台线程完成，但最多只等 500 毫秒！
+                // 这保证了底层硬件有足够时间完成关机握手，不至于产生“僵尸句柄”；
+                // 同时也保证了如果底层硬件物理卡死，主进程最多卡半秒钟也能顺利退出。
+                closeTask.Wait(TimeSpan.FromMilliseconds(500));
             }
 
-            // 清空未发送的队列指令，避免下次打开时堆积发送
+            // 清空未发送的队列指令
             _highPriorityQueue.Clear();
             _lowPriorityQueue.Clear();
 
-            // 核心：更新内部状态并对外触发事件
             UpdateConnectionStatus(false, null);
         }
 
@@ -191,17 +238,49 @@ namespace GD_ControlCenter_WPF.Services
         /// <summary>
         /// 内部数据接收处理器 (运行在次线程)
         /// </summary>
+        //private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
+        //{
+        //    if (_serialPort == null || !_serialPort.IsOpen) return;
+        //    try
+        //    {
+        //        Thread.Sleep(200);
+        //        int bytesToRead = _serialPort.BytesToRead;
+        //        byte[] buffer = new byte[bytesToRead];
+        //        _serialPort.Read(buffer, 0, bytesToRead);
+        //        WeakReferenceMessenger.Default.Send(new HexDataMessage(buffer));
+        //    }
+        //    catch (Exception) { }
+        //}
+
+        /// <summary>
+        /// 内部数据接收处理器 (运行在次线程)
+        /// </summary>
         private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            if (_serialPort == null || !_serialPort.IsOpen) return;
+            // 核心修改：将 sender 安全转换为 SerialPort 局部变量使用
+            // 这样即使全局的 _serialPort 被置空，这里的局部引用依然有效，不会报空引用
+            var sp = sender as SerialPort;
+
+            if (sp == null || !sp.IsOpen) return;
+
             try
             {
-                int bytesToRead = _serialPort.BytesToRead;
+                Thread.Sleep(200);
+
+                // 睡眠结束后，再次确认串口是否在这 200ms 内被关闭了
+                if (!sp.IsOpen) return;
+
+                int bytesToRead = sp.BytesToRead;
+                if (bytesToRead == 0) return; // 防呆：如果没有数据则退出
+
                 byte[] buffer = new byte[bytesToRead];
-                _serialPort.Read(buffer, 0, bytesToRead);
+                sp.Read(buffer, 0, bytesToRead);
                 WeakReferenceMessenger.Default.Send(new HexDataMessage(buffer));
             }
-            catch (Exception) { }
+            catch (Exception)
+            {
+                // 吞掉在读取瞬间被强杀导致的 IO 异常
+            }
         }
 
         /// <summary>
