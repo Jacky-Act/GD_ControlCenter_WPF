@@ -1,0 +1,25 @@
+﻿<Window x:Class="GD_ControlCenter_WPF.Views.Dialogs.AddElementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="添加检测元素" Height="200" Width="300" 
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="ToolWindow">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBox Grid.Row="0" VerticalAlignment="Center" FontSize="16"
+                 materialDesign:HintAssist.Hint="输入元素符号 (如 Pb, Cd)" 
+                 Text="{Binding ElementName, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="取消" Style="{StaticResource MaterialDesignOutlinedButton}" 
+                    Margin="0,0,10,0" Command="{Binding CancelCommand}"/>
+            <Button Content="确认" Style="{StaticResource MaterialDesignRaisedButton}" 
+                    Command="{Binding ApplyCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>
