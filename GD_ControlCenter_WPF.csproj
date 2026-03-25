@@ -18,12 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\AppIcon.png">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </Resource>
-  </ItemGroup>
-
-  <ItemGroup>
     <Resource Include="Assets\AppIcon.ico" />
     <Content Include="Libs\avaspec.dll">
 	    <Link>avaspec.dll</Link>

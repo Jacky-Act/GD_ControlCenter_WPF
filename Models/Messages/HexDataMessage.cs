@@ -4,7 +4,6 @@
  * 文件名: HexDataMessage.cs
  * 描述: 通用的十六进制原始数据传输包。
  * 用于在不同模块间传递未经解析的原始串口字节流。
- * 项目: GD_ControlCenter_WPF
  */
 
 namespace GD_ControlCenter_WPF.Models.Messages

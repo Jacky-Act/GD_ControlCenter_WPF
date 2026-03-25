@@ -39,45 +39,39 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
         #region 2. 多机光谱拼接算法 (Stitching Algorithm)
 
         /// <summary>
-        /// 多设备光谱拼接算法 (极致性能版)。
+        /// 多设备光谱拼接算法 (峰值保护版 - 终极形态)。
         /// 特性1：使用全局静态内存池，过程零分配 (Zero-Allocation)。
-        /// 特性2：对重叠波长区域的数据自动取平均值 (平滑过渡)。
+        /// 特性2：采用“最大值保持 (Peak Hold)”处理重合波长，完美杜绝“平均算法”导致的尖峰强度被削弱现象。
         /// </summary>
         /// <param name="dataCollection">等待拼接的多台光谱仪原始数据集合。</param>
-        /// <param name="mergeTolerance">重合容差(nm)。两点波长差异小于此值将被视为同一点并取平均强度。</param>
-        /// <returns>返回拼接后的一条完整光谱数据。若输入无效则返回 null。</returns>
-        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection, double mergeTolerance = 0.2)
+        /// <param name="mergeTolerance">重合容差(nm)。建议设为 0.05，仅合并距离极近的像素点。</param>
+        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection, double mergeTolerance = 0.05)
         {
             if (dataCollection == null) return null;
 
-            // 必须加锁，因为全局内存池只有一份，绝对不能并发覆写
             lock (_stitchLock)
             {
                 int totalLength = 0;
                 int count = 0;
 
-                // 预扫描：计算所有数据的总长度
+                // 预扫描：计算总长度
                 foreach (var data in dataCollection)
                 {
-                    if (data.Wavelengths != null)
-                        totalLength += data.Wavelengths.Length;
+                    if (data.Wavelengths != null) totalLength += data.Wavelengths.Length;
                     count++;
                 }
 
-                // 如果只有 1 台设备或没有数据，直接抛弃不拼接
                 if (count < 2 || totalLength == 0) return null;
 
-                // 【动态扩容机制】：如果未来接入了 10 台设备超出了默认缓存池，自动翻倍扩容
+                // 动态扩容
                 if (totalLength > _bufferWavelengths.Length)
                 {
                     _maxBufferSize = totalLength * 2;
                     _bufferWavelengths = new double[_maxBufferSize];
                     _bufferIntensities = new double[_maxBufferSize];
-                    _bufferCounts = new int[_maxBufferSize];
                 }
 
-                // --- 步骤 1：数据打平 (Flatten) ---
-                // 将多台设备的波长和强度，直接粗暴地按顺序拷贝到全局缓存池中 (极速内存拷贝)
+                // 步骤 1：数据打平拷贝
                 int currentOffset = 0;
                 foreach (var data in dataCollection)
                 {
@@ -90,52 +84,40 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                     }
                 }
 
-                // --- 步骤 2：原位排序 (In-Place Sort) ---
-                // 按照波长升序排列。注意：强度数组会跟着波长数组同步交换位置，所以数据不会乱。
+                // 步骤 2：按照波长原位升序排列
                 Array.Sort(_bufferWavelengths, _bufferIntensities, 0, totalLength);
 
-                // --- 步骤 3：重合区间求均值 (双指针原地合并算法) ---
+                // 步骤 3：重合区间去重与峰值保护 (Peak Hold)
                 int validCount = 0; // 慢指针：指向合并后的有效数据尾部
-                _bufferCounts[0] = 1;
 
-                // 快指针 i：向后遍历探测
+                // 快指针 i：向后探测
                 for (int i = 1; i < totalLength; i++)
                 {
-                    // 判断当前探测到的波长，是否与慢指针的波长 "重合" (差距在容差范围内)
+                    // 判断当前探测到的波长，是否与慢指针的波长极为接近 (发生重合)
                     if (Math.Abs(_bufferWavelengths[i] - _bufferWavelengths[validCount]) <= mergeTolerance)
                     {
-                        // 发生重叠：累加强度，并记录重叠次数
-                        _bufferIntensities[validCount] += _bufferIntensities[i];
-                        _bufferCounts[validCount]++;
+                        // 【核心修改】：坚决不求平均！只保留强度最大的那一个！
+                        if (_bufferIntensities[i] > _bufferIntensities[validCount])
+                        {
+                            // 如果新探测到的点更亮，用它覆盖掉慢指针处的数据
+                            _bufferWavelengths[validCount] = _bufferWavelengths[i];
+                            _bufferIntensities[validCount] = _bufferIntensities[i];
+                        }
+                        // 如果新探测的点较弱，则直接丢弃（快指针 i 继续往下走，慢指针 validCount 不动）
                     }
                     else
                     {
-                        // 结束重叠：先结算上一个重叠点的最终平均值
-                        if (_bufferCounts[validCount] > 1)
-                        {
-                            _bufferIntensities[validCount] /= _bufferCounts[validCount];
-                        }
-
-                        // 慢指针向前推进一步，将新探测到的独立波长存入
+                        // 不重合：慢指针向前推进一步，存入独立的新波长点
                         validCount++;
                         _bufferWavelengths[validCount] = _bufferWavelengths[i];
                         _bufferIntensities[validCount] = _bufferIntensities[i];
-                        _bufferCounts[validCount] = 1; // 重置新点的计数
                     }
-                }
-
-                // 循环结束后，别忘了结算最后一个点的平均值
-                if (_bufferCounts[validCount] > 1)
-                {
-                    _bufferIntensities[validCount] /= _bufferCounts[validCount];
                 }
 
                 // 有效数据的真实总长度
                 int finalLength = validCount + 1;
 
-                // --- 步骤 4：拷贝出结果 ---
-                // 【注意】：这是整个算法唯一一次使用 new 关键字分配内存。
-                // 必须生成一份干净的实体对象返回给上层，防止上层持有全局内存池的引用。
+                // 步骤 4：拷贝出结果
                 double[] finalW = new double[finalLength];
                 double[] finalI = new double[finalLength];
                 Array.Copy(_bufferWavelengths, 0, finalW, 0, finalLength);
@@ -175,35 +157,64 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
         }
 
         /// <summary>
-        /// 局部动态寻峰：在指定的理论波长容差窗口内，锁定实际的最高峰值波长。
-        /// 物理意义：应对环境温度、震动等引起的微小波长漂移，确保时序图始终追踪真实的峰位。
+        /// 局部动态寻峰 (防跳峰优化版)：在指定的理论波长容差窗口内，锁定实际的最高峰值波长。
+        /// 核心算法：基于“局部最高点 (Local Maxima) 就近匹配”，完美解决距离极近的双峰/多峰互相干扰跳跃的问题。
         /// </summary>
         /// <param name="data">当前帧光谱数据。</param>
-        /// <param name="targetWavelength">期望寻找的理论中心波长。</param>
+        /// <param name="targetWavelength">用户期望寻找的理论中心波长（鼠标点击位置）。</param>
         /// <param name="tolerance">允许的左右搜索范围（± nm）。</param>
         public static double GetActualPeakWavelength(SpectralData data, double targetWavelength, double tolerance)
         {
             if (data == null || data.Wavelengths == null || data.Wavelengths.Length == 0) return targetWavelength;
 
-            double maxIntensity = -1;
-            double actualWavelength = targetWavelength;
+            // 记录容差窗口内的绝对最高点（作为纯斜坡环境下的兜底保障）
+            double maxIntensityInWindow = -1;
+            int maxIndexInWindow = -1;
+
+            // 记录容差窗口内所有“局部山头 (Local Peaks)”的索引名单
+            var localPeakIndices = new System.Collections.Generic.List<int>();
 
             for (int i = 0; i < data.Wavelengths.Length; i++)
             {
                 double currentW = data.Wavelengths[i];
 
-                // 如果当前波长落入我们的搜索窗口内
+                // 仅在容差窗口内进行搜索
                 if (Math.Abs(currentW - targetWavelength) <= tolerance)
                 {
-                    // 记录该窗口内的最大值坐标
-                    if (data.Intensities[i] > maxIntensity)
+                    double currentI = data.Intensities[i];
+
+                    // 1. 随时更新窗口内的绝对最高点 (兜底用)
+                    if (currentI > maxIntensityInWindow)
                     {
-                        maxIntensity = data.Intensities[i];
-                        actualWavelength = currentW;
+                        maxIntensityInWindow = currentI;
+                        maxIndexInWindow = i;
+                    }
+
+                    // 2. 识别“局部山头”：当前像素必须严格大于其左右相邻的像素
+                    // 处理数组越界的边界安全
+                    double leftI = (i > 0) ? data.Intensities[i - 1] : double.MinValue;
+                    double rightI = (i < data.Wavelengths.Length - 1) ? data.Intensities[i + 1] : double.MinValue;
+
+                    if (currentI > leftI && currentI > rightI)
+                    {
+                        localPeakIndices.Add(i);
                     }
                 }
             }
-            return actualWavelength;
+
+            // 场景 A：如果窗口内没有任何“山头”（说明这是一个平缓的长坡或截断区），只能返回窗口内的最高点
+            if (localPeakIndices.Count == 0)
+            {
+                return maxIndexInWindow != -1 ? data.Wavelengths[maxIndexInWindow] : targetWavelength;
+            }
+
+            // 场景 B：窗口内发现了 1 个或多个“山头”（双峰重叠区）
+            // 【核心防跳峰逻辑】：忽略山头的高度，选出一个距离用户 TargetWavelength 最近的山头！
+            int bestPeakIndex = localPeakIndices
+                .OrderBy(idx => Math.Abs(data.Wavelengths[idx] - targetWavelength))
+                .First();
+
+            return data.Wavelengths[bestPeakIndex];
         }
 
         /// <summary>

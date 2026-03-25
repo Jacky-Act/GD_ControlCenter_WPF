@@ -5,8 +5,7 @@ using System.Runtime.InteropServices;
  * 文件名: AvantesSdk.cs
  * 描述: 本文件包含对 Avantes 光谱仪底层驱动库（avaspec.dll / avaspecx64.dll）的 C# 封装。
  * 通过 P/Invoke 技术实现对 C++ 原生 API 的调用，涵盖了设备初始化、参数配置、光谱数据采集等核心功能。
- * 旨在为 WPF 上位机软件提供稳定、高效的光谱仪控制接口。
- * 项目: GD_ControlCenter_WPF
+ * 为 C# 编写的上位机软件提供稳定、高效的光谱仪控制接口。
  */
 
 namespace C_Sharp_Application

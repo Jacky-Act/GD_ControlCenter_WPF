@@ -147,7 +147,23 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
 
         private bool CheckSafety(AxisType axis, int step, bool isPositive)
         {
-            if (Status.IsAtMin[axis] && !isPositive) return false;
+            if (!isPositive)
+            {
+                if (axis == AxisType.Z)
+                {
+                    // 【核心修改】：如果当前 Z > 0，直接放行 (return true)；
+                    // 只有当 Z <= 0 且目标越过 -2000 时才返回 false 进行拦截。
+                    if (CurrentPosition[axis] <= 0 && CurrentPosition[axis] - step < PlatformLimits.MinStepZ)
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    if (Status.IsAtMin[axis]) return false;
+                }
+            }
+
             if (Status.IsAtMax[axis] && isPositive) return false;
 
             return true;

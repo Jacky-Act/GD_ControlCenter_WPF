@@ -130,12 +130,32 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             bool isPositive = SelectedDirectionIndex == 0;
             int step = (int)Math.Round(StepDistance);
 
-            // 1. 拦截预检：如果是起步前就发现超限，使用“无法移动”文案
-            if ((isPositive && _platformService.Status.IsAtMax[targetAxis]) ||
-                (!isPositive && _platformService.Status.IsAtMin[targetAxis]))
+            // 1. 拦截预检：按轴与方向精细化校验
+            if (isPositive && _platformService.Status.IsAtMax[targetAxis])
             {
-                CalibrationStatus = $"🚫 操作拒绝：{targetAxis} 轴已处于极限位置，无法继续向该方向移动。";
+                CalibrationStatus = $"操作拒绝：{targetAxis} 轴已处于极限位置，无法继续向正方向移动。";
                 return;
+            }
+
+            if (!isPositive)
+            {
+                if (targetAxis == AxisType.Z)
+                {
+                    // 【核心修改】：Z轴大于0时一律放行（靠硬件0点截停）；
+                    // 只有当 Z轴 <= 0 时，才拦截超过 -2000 的移动请求。
+                    if (_platformService.CurrentPosition.Z <= 0 &&
+                        _platformService.CurrentPosition.Z - step < PlatformLimits.MinStepZ)
+                    {
+                        CalibrationStatus = $"操作拒绝：Z 轴将超过最低极限位置 ({PlatformLimits.MinStepZ})，无法继续向该方向移动。";
+                        return;
+                    }
+                }
+                else if (_platformService.Status.IsAtMin[targetAxis])
+                {
+                    // X、Y 轴保持常规零点拦截
+                    CalibrationStatus = $"操作拒绝：{targetAxis} 轴已处于零点极限位置，无法继续向该方向移动。";
+                    return;
+                }
             }
 
             CalibrationStatus = $"正在手动移动 {targetAxis} 轴...";

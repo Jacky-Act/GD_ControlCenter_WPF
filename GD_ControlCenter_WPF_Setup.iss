@@ -1,6 +1,6 @@
 ; --- 1. 全局宏定义 ---
 #define MyAppName "GD控制中心"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "GD仪器开发团队"
 #define MyAppExeName "GD_ControlCenter_WPF.exe"
 

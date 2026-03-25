@@ -3,7 +3,6 @@ using GD_ControlCenter_WPF.Models.Spectrometer;
 
 /*
  * 文件名: SpectrometerMessages.cs
- * 模块: 消息总线契约 (Message Contracts)
  * 描述: 定义光谱仪相关的全局广播消息。通过弱引用消息解耦后台硬件采集与前端 UI 刷新。
  * 维护指南: 任何新增的消息都必须归类到对应的 #region 中，并写明“发送方”与“订阅方”。
  */
@@ -19,6 +18,9 @@ namespace GD_ControlCenter_WPF.Models.Messages
     ///   - ControlPanelViewModel (用于刷新主界面波形图)
     ///   - TimeSeriesViewModel (用于提取特征峰数据并记录时序图)
     ///   - PeakTrackingService (用于计算特征峰漂移)
+    ///   - PlatformCalibrationService
+    ///   - SpectrometerViewModel
+    ///   - 
     /// </summary>
     public class SpectralDataMessage : ValueChangedMessage<SpectralData>
     {

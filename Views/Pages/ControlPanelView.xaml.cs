@@ -58,7 +58,7 @@ namespace GD_ControlCenter_WPF.Views.Pages
         /// <summary>
         /// 请求标志：由“自动范围”按钮触发，通知下一次 RenderPlot 时强制执行一次 AutoScale。
         /// </summary>
-        private bool _requestAutoScale = false;
+        private bool _isContinuousAutoScale = true;
 
         /// <summary>
         /// 当前手中握有的最新一帧实时硬件光谱数据。
@@ -108,10 +108,15 @@ namespace GD_ControlCenter_WPF.Views.Pages
             SpecPlot.PreviewMouseLeftButtonUp += OnPlotLeftMouseUp;
 
             // 【核心修复 1：实时保存】：只要鼠标松开或滚轮滚动，立刻保存最新坐标！
-            SpecPlot.PreviewMouseUp += (s, e) => SaveLimitsToViewModel();
+            SpecPlot.PreviewMouseUp += (s, e) =>
+            {
+                _isContinuousAutoScale = false; // 【新增】：用户松开鼠标拖拽，打断自动追踪
+                SaveLimitsToViewModel();
+            };
+
             SpecPlot.PreviewMouseWheel += (s, e) =>
             {
-                // 因为滚轮事件触发时 ScottPlot 还没算完缩放，所以使用后台线程稍微延时读取
+                _isContinuousAutoScale = false; // 【新增】：用户滚动滚轮，打断自动追踪
                 Dispatcher.BeginInvoke(new Action(SaveLimitsToViewModel), System.Windows.Threading.DispatcherPriority.Background);
             };
 
@@ -234,7 +239,7 @@ namespace GD_ControlCenter_WPF.Views.Pages
             {
                 Dispatcher.Invoke(() =>
                 {
-                    _requestAutoScale = true;
+                    _isContinuousAutoScale = true; // 【修改】：开启持续自动追踪模式
                     if (_currentData != null) RenderPlot(_currentData);
                     else if (_cachedReferenceData != null)
                     {
@@ -250,7 +255,11 @@ namespace GD_ControlCenter_WPF.Views.Pages
             {
                 Dispatcher.Invoke(() =>
                 {
-                    if (_maxLimits.HasValue) SpecPlot.Plot.Axes.SetLimits(_maxLimits.Value);
+                    // 【核心修复】：点击最大范围时，必须强制打断自动追踪状态！
+                    _isContinuousAutoScale = false;
+
+                    if (_maxLimits.HasValue)
+                        SpecPlot.Plot.Axes.SetLimits(_maxLimits.Value);
                     else if (_cachedReferenceData != null)
                     {
                         double minX = _cachedReferenceData.Wavelengths[0];
@@ -258,6 +267,9 @@ namespace GD_ControlCenter_WPF.Views.Pages
                         SpecPlot.Plot.Axes.SetLimits(minX, maxX, -1000, 65535);
                     }
                     SpecPlot.Refresh();
+
+                    // 顺手保存一下最新坐标，确保切换页面不丢失
+                    SaveLimitsToViewModel();
                 });
             });
 
@@ -373,7 +385,7 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 double minWavelength = data.Wavelengths[0];
                 double maxWavelength = data.Wavelengths[^1];
 
-                _maxLimits = new AxisLimits(minWavelength, maxWavelength, -1000, 65535);
+                _maxLimits = new AxisLimits(minWavelength, maxWavelength, -1000, 70000);
 
                 var limitRule = new ScottPlot.AxisRules.MaximumBoundary(
                     SpecPlot.Plot.Axes.Bottom,
@@ -384,7 +396,6 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 SpecPlot.Plot.Axes.Rules.Clear();
                 SpecPlot.Plot.Axes.Rules.Add(limitRule);
 
-                // 【核心修复 4】：使用强引用的 _vm 来恢复视野
                 if (_vm != null && _vm.SavedAxisLimits != null)
                 {
                     SpecPlot.Plot.Axes.SetLimits(
@@ -392,20 +403,22 @@ namespace GD_ControlCenter_WPF.Views.Pages
                         _vm.SavedAxisLimits[1],
                         _vm.SavedAxisLimits[2],
                         _vm.SavedAxisLimits[3]);
+
+                    _isContinuousAutoScale = false; // 如果有记忆的坐标，说明上次用户拖动过，关闭自动追踪
                 }
                 else
                 {
                     SpecPlot.Plot.Axes.AutoScale();
+                    _isContinuousAutoScale = true;  // 否则开启自动追踪
                 }
 
                 _isFirstFrame = false;
             }
-            else if (_requestAutoScale)
+            else if (_isContinuousAutoScale)
             {
+                // 【核心修复】：只要处于自动模式，每一帧都无条件执行自适应，并且不再将其设为 false！
                 SpecPlot.Plot.Axes.AutoScale();
-                _requestAutoScale = false;
 
-                // 【核心修复 5】：如果用户主动点击了“自动范围”按钮，清空记忆，避免下次切页又变回去
                 if (_vm != null) _vm.SavedAxisLimits = null;
             }
         }
@@ -522,6 +535,8 @@ namespace GD_ControlCenter_WPF.Views.Pages
                     double xMax = Math.Max(coord1.X, coord2.X);
                     double yMin = Math.Min(coord1.Y, coord2.Y);
                     double yMax = Math.Max(coord1.Y, coord2.Y);
+
+                    _isContinuousAutoScale = false; // 【新增】：用户完成了框选放大，打断自动追踪
 
                     // 应用缩放
                     SpecPlot.Plot.Axes.SetLimits(xMin, xMax, yMin, yMax);

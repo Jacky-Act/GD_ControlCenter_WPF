@@ -1,7 +1,7 @@
 ﻿/*
  * 文件名: Platform3DMessages.cs
- * 模块: 消息总线契约 (Message Contracts)
- * 描述: 定义三维平台在业务逻辑层（Service -> ViewModel）流转的高阶强类型消息。
+ * 描述: 定义三维平台在业务逻辑层（Service -> ViewModel）流转的高阶强类型消息模型。
+ * 用于在 Service 层解析底层信号后，将具体的业务状态或事件（如限位触发）分发至对应的 ViewModel 以更新 UI。
  */
 
 namespace GD_ControlCenter_WPF.Models.Messages

@@ -4,7 +4,6 @@
  * 文件名: DeviceDataMessages.cs
  * 描述: 定义与底层硬件原始数据帧关联的消息模型。
  * 用于在 Service 层解析出原始字节数组后，通过强类型消息将其分发至对应的数据处理模块或 ViewModel。
- * 项目: GD_ControlCenter_WPF
  */
 
 namespace GD_ControlCenter_WPF.Models.Messages
