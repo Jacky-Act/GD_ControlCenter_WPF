@@ -10,10 +10,15 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBox Grid.Row="0" VerticalAlignment="Center" FontSize="16"
-                 materialDesign:HintAssist.Hint="输入元素符号 (如 Pb, Cd)" 
-                 Text="{Binding ElementName, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource MaterialDesignFloatingHintTextBox}"/>
+        <!-- ================= 修改核心区域：可编辑的 ComboBox ================= -->
+        <ComboBox Grid.Row="0" VerticalAlignment="Center" FontSize="16"
+                  materialDesign:HintAssist.Hint="选择或输入元素符号 (如 Pb)"
+                  IsEditable="True"
+                  ItemsSource="{Binding ElementLibrary}"
+                  Text="{Binding ElementName, UpdateSourceTrigger=PropertyChanged}"
+                  Style="{StaticResource MaterialDesignFloatingHintComboBox}">
+        </ComboBox>
+        <!-- =================================================================== -->
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="取消" Style="{StaticResource MaterialDesignOutlinedButton}" 

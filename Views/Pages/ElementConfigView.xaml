@@ -179,9 +179,10 @@
                 </StackPanel>
 
                 <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedConfigs}" 
-                          AutoGenerateColumns="False" IsReadOnly="True" 
-                          CanUserAddRows="False" CanUserDeleteRows="False"
-                          materialDesign:DataGridAssist.ColumnHeaderPadding="8">
+                    SelectedItem="{Binding CurrentSelectedConfig, Mode=TwoWay}" 
+                    AutoGenerateColumns="False" IsReadOnly="True" 
+                    CanUserAddRows="False" CanUserDeleteRows="False" 
+                    materialDesign:DataGridAssist.ColumnHeaderPadding="8">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="元素" Binding="{Binding ElementName}" Width="*"/>
                         <DataGridTextColumn Header="波长 (nm)" Binding="{Binding Wavelength}" Width="*"/>
@@ -204,8 +205,7 @@
 
             <Button Content="删除信息" 
             Style="{StaticResource MaterialDesignRaisedButton}" 
-            Command="{Binding ExportCurveCommand}" 
-            Margin="0,0,15,0"/>
+            Command="{Binding RemoveConfigCommand}" Margin="0,0,15,0"/>
 
             <Button Content="加入分析配置" 
             Style="{StaticResource MaterialDesignRaisedButton}" 
