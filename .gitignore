@@ -255,6 +255,10 @@ ClientBin/
 *.pfx
 *.publishsettings
 orleans.codegen.cs
+# 忽略 Output 文件夹下的所有安装包发布文件
+Output/
+# 忽略 Inno Setup 打包脚本文件
+GD_ControlCenter_WPF_Setup.iss
 
 # Including strong name files can present a security risk
 # (https://github.com/github/gitignore/pull/2483#issue-259490424)
