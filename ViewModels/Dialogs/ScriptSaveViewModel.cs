@@ -8,29 +8,37 @@ using System.Windows;
 
 /*
  * 文件名: ScriptSaveViewModel.cs
- * 模块: 视图模型层 (UI ViewModels)
- * 描述: 自动化脚本保存配置弹窗的后台逻辑。
- * 架构职责:
- * 1. 独立管理脚本保存的参数配置（次数、间隔、路径）。
- * 2. 负责将合法的配置持久化到本地 JSON。
- * 3. 【跨窗口同步】：通过监听全局消息，确保在窗口打开期间，UI 状态能与主界面的后台采集任务保持绝对同步。
+ * 描述: 自动化脚本保存配置弹窗的视图模型。
+ * 负责管理保存任务的核心参数（次数、频率、存储路径），执行本地持久化，并通过全局消息中心与后台采集任务保持状态同步。
+ * 维护指南: 
+ * 1. 跨窗口同步通过 ScriptSaveStateChangedMessage 实现，确保弹窗状态与主界面采集引擎一致。
+ * 2. 文件夹选择功能依赖于 Windows Forms 的 FolderBrowserDialog。
+ * 3. 参数校验逻辑集中在 SaveConfigToLocal 方法中，物理边界由 UI 命令层拦截。
  */
 
 namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 {
+    /// <summary>
+    /// 脚本保存设置视图模型：处理自动化采集任务的参数交互、校验与持久化。
+    /// </summary>
     public partial class ScriptSaveViewModel : ObservableObject
     {
         #region 1. 依赖注入与回调行为
 
+        /// <summary>
+        /// JSON 配置管理服务。
+        /// </summary>
         private readonly JsonConfigService _configService;
 
         /// <summary>
-        /// 窗口关闭回调委托。由 View 层在实例化时注入，用于在 ViewModel 中控制 UI 窗口的关闭。
+        /// 窗口关闭回调委托。
+        /// 用于在业务逻辑完成后通知视图层销毁当前对话框。
         /// </summary>
         private readonly Action _closeAction;
 
         /// <summary>
-        /// 启停主界面保存逻辑的回调委托。
+        /// 启停主控保存逻辑的回调委托。
+        /// 用于触发主界面中定义的自动化采集生命周期。
         /// </summary>
         private readonly Action _toggleSaveAction;
 
@@ -40,7 +48,7 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 
         /// <summary>
         /// 当前是否正在执行后台脚本保存任务。
-        /// 通过 NotifyPropertyChangedFor 级联更新关联的文本、颜色和控件可用性。
+        /// 变更时会自动刷新 ToggleBtnText、ToggleBtnColor 等派生属性。
         /// </summary>
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsNotSaving))]
@@ -49,17 +57,19 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         private bool _isScriptSaving;
 
         /// <summary>
-        /// 取反状态：用于控制参数输入框在“运行中”被锁定 (IsEnabled = false)。
+        /// 标识是否未在保存中。
+        /// 用于在运行期间锁定 UI 输入控件 (IsEnabled 绑定)。
         /// </summary>
         public bool IsNotSaving => !IsScriptSaving;
 
         /// <summary>
-        /// 动态启停按钮文本。
+        /// 启停按钮的动态文本描述。
         /// </summary>
         public string ToggleBtnText => IsScriptSaving ? "停止保存" : "启动保存";
 
         /// <summary>
-        /// 动态启停按钮颜色。运行中变红 (#F44336)，否则保持主色调 (#673ab7)。
+        /// 启停按钮的动态背景颜色（十六进制字符串）。
+        /// 运行中为红色报警色，待机时为品牌主色调。
         /// </summary>
         public string ToggleBtnColor => IsScriptSaving ? "#F44336" : "#673ab7";
 
@@ -67,12 +77,21 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 
         #region 3. 脚本存储配置参数
 
+        /// <summary>
+        /// 预设的连续保存帧数。
+        /// </summary>
         [ObservableProperty]
         private int _scriptSaveCount;
 
+        /// <summary>
+        /// 两次保存动作之间的时间间隔（单位：秒）。
+        /// </summary>
         [ObservableProperty]
         private int _scriptSaveInterval;
 
+        /// <summary>
+        /// 目标存储文件夹的绝对物理路径。
+        /// </summary>
         [ObservableProperty]
         private string _scriptSaveDirectory = string.Empty;
 
@@ -81,37 +100,35 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         #region 4. 初始化与跨窗口消息监听
 
         /// <summary>
-        /// 实例化脚本保存视图模型。
+        /// 构造脚本保存视图模型。
+        /// 执行参数恢复、状态同步及全局消息订阅。
         /// </summary>
-        public ScriptSaveViewModel(
-            JsonConfigService configService,
-            AppConfig currentConfig,
-            bool isCurrentlySaving,
-            Action closeAction,
-            Action toggleSaveAction)
+        /// <param name="configService">配置服务实例。</param>
+        /// <param name="currentConfig">当前全局配置快照。</param>
+        /// <param name="isCurrentlySaving">主界面当前的保存状态标识。</param>
+        /// <param name="closeAction">对话框关闭委托。</param>
+        /// <param name="toggleSaveAction">采集任务控制委托。</param>
+        public ScriptSaveViewModel(JsonConfigService configService, AppConfig currentConfig, bool isCurrentlySaving,
+            Action closeAction, Action toggleSaveAction)
         {
             _configService = configService;
             _closeAction = closeAction;
             _toggleSaveAction = toggleSaveAction;
             IsScriptSaving = isCurrentlySaving;
 
-            // --- 初始参数安全校验与加载 ---
-            // 防呆：防止配置文件损坏导致出现 0 或负数
+            // 初始化参数加载与物理有效性检查
             ScriptSaveCount = currentConfig.ScriptSaveCount > 0 ? currentConfig.ScriptSaveCount : 100;
             ScriptSaveInterval = currentConfig.ScriptSaveInterval > 0 ? currentConfig.ScriptSaveInterval : 5;
 
-            // 如果路径为空，默认回退到系统桌面
+            // 路径初始化：若无记录则默认定位至系统桌面
             ScriptSaveDirectory = string.IsNullOrWhiteSpace(currentConfig.ScriptSaveDirectory)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
                 : currentConfig.ScriptSaveDirectory;
 
-            // --- 【核心机制：跨窗口状态同步】 ---
-            // 场景说明：当该弹窗处于打开状态时，主界面的后台保存任务可能刚好执行完毕并自动停止。
-            // 此时主界面会通过 WeakReferenceMessenger 广播 ScriptSaveStateChangedMessage。
-            // 本弹窗监听到该消息后，立即同步自身的 IsScriptSaving，从而让变红的按钮瞬间恢复原状。
+            // 注册跨窗口状态同步：监听后台采集引擎的意外中止或计划完成
             WeakReferenceMessenger.Default.Register<ScriptSaveStateChangedMessage>(this, (r, m) =>
             {
-                // 确保在主 UI 线程安全更新属性
+                // 通过 Dispatcher 确保在主 UI 线程安全更新 ObservableProperty
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     IsScriptSaving = m.Value;
@@ -121,33 +138,43 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
 
         #endregion
 
-        #region 5. 参数增减控制 (安全防溢出)
+        #region 5. 参数增减控制命令 (UI 命令层拦截)
 
-        // 这里的指令直接绑定到 UI 上的 +/- 按钮，严格控制物理参数的逻辑边界
-
+        /// <summary>
+        /// 增加保存次数。上限限制为 10000 帧。
+        /// </summary>
         [RelayCommand]
         private void IncreaseCount() { if (ScriptSaveCount < 10000) ScriptSaveCount++; }
 
+        /// <summary>
+        /// 减少保存次数。下限限制为 1 帧。
+        /// </summary>
         [RelayCommand]
         private void DecreaseCount() { if (ScriptSaveCount > 1) ScriptSaveCount--; }
 
+        /// <summary>
+        /// 增加保存间隔秒数。上限限制为 3600 秒（1小时）。
+        /// </summary>
         [RelayCommand]
-        private void IncreaseInterval() { if (ScriptSaveInterval < 3600) ScriptSaveInterval++; } // 最大间隔 1 小时
+        private void IncreaseInterval() { if (ScriptSaveInterval < 3600) ScriptSaveInterval++; }
 
+        /// <summary>
+        /// 减少保存间隔秒数。下限限制为 1 秒，防止 0 间隔引发 IO 堆塞。
+        /// </summary>
         [RelayCommand]
-        private void DecreaseInterval() { if (ScriptSaveInterval > 1) ScriptSaveInterval--; } // 修复：间隔不能为 0，最小为 1 秒
+        private void DecreaseInterval() { if (ScriptSaveInterval > 1) ScriptSaveInterval--; }
 
         #endregion
 
-        #region 6. 本地配置读写与业务提交
+        #region 6. 业务提交与持久化逻辑
 
         /// <summary>
-        /// 调用系统对话框浏览并选择目标文件夹。
+        /// 弹出系统文件夹浏览器，用于用户手动选择存储目标。
+        /// 备注：依赖于 System.Windows.Forms 互操作。
         /// </summary>
         [RelayCommand]
         private void BrowseDirectory()
         {
-            // 使用 WinForms 的原生文件夹选择器 (需在 .csproj 中开启 <UseWindowsForms>true</UseWindowsForms>)
             using var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
                 Description = "选择脚本保存目录",
@@ -162,14 +189,15 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         }
 
         /// <summary>
-        /// 将当前 UI 上的参数持久化到本地 JSON 配置文件中。
+        /// 执行核心持久化逻辑：将当前配置写入本地磁盘。
         /// </summary>
-        /// <returns>校验并保存成功返回 true，参数非法返回 false。</returns>
+        /// <returns>若参数合法且保存成功则返回 true。</returns>
         private bool SaveConfigToLocal()
         {
+            // 物理边界二次防御
             if (ScriptSaveCount < 1 || ScriptSaveInterval <= 0)
             {
-                MessageBox.Show("保存次数和间隔必须大于 0", "参数错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("保存次数和间隔必须大于 0", "参数校验失败", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
 
@@ -183,7 +211,7 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         }
 
         /// <summary>
-        /// 单独点击“应用”按钮：仅保存参数并关闭窗口，不触发采集逻辑。
+        /// 响应“应用”按钮点击：仅同步配置并关闭窗口。
         /// </summary>
         [RelayCommand]
         private void Apply()
@@ -195,22 +223,22 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
         }
 
         /// <summary>
-        /// 点击“启动/停止”大按钮：保存参数，触发主界面任务，并关闭窗口。
+        /// 响应“启动/停止”切换请求。
+        /// 在启动前执行强制校验，随后触发主界面业务逻辑并关闭当前弹窗。
         /// </summary>
         [RelayCommand]
         private void ToggleSave()
         {
-            // 逻辑门：只有在“准备启动”的情况下，才需要校验并覆写本地配置
-            // 如果是“正在录制”要去“停止”，则无需校验，直接放行
+            // 准入逻辑：仅在启动采集前执行校验，停止指令直接透传
             if (!IsScriptSaving)
             {
                 if (!SaveConfigToLocal()) return;
             }
 
-            // 触发主控面板的启停委托
+            // 执行主界面注册的启停业务
             _toggleSaveAction?.Invoke();
 
-            // 关闭当前弹窗
+            // 关闭交互窗口
             _closeAction?.Invoke();
         }
 

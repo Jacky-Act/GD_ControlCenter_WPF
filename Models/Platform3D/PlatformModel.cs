@@ -1,8 +1,8 @@
 ﻿/*
  * 文件名: PlatformModel.cs
- * 描述: 本文件定义了三维运动平台的物理模型、运行状态以及软限位常量。
- * 架构规范: 纯数据模型 (POCO)，已剥离 MVVM 框架依赖。
- * 项目: GD_ControlCenter_WPF
+ * 描述: 定义三维运动平台的物理模型、实时运行状态以及物理限位常量。
+ * 作为纯数据模型 (POCO)，它不依赖 MVVM 框架，用于在 Service 层和 ViewModel 层之间传递平台的坐标、状态及边界限制数据。
+ * 维护指南: 修改 PlatformLimits 中的常量需参考硬件实际物理行程；AxisType 的枚举值必须与底层通信协议严格对应。
  */
 
 using System.Collections.Generic;

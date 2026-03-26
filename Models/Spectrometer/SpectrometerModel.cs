@@ -1,100 +1,121 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using System;
 
 /*
  * 文件名: SpectrometerModel.cs
- * 模块: 核心领域模型 (Domain Models)
- * 描述: 本文件定义了光谱仪的配置实体与核心数据承载实体。
- * 架构规范: 
- * 1. 本文件内的类只允许包含数据和极其简单的状态逻辑，严禁包含任何业务计算或硬件操作。
- * 2. SpectralData 作为多线程传递的信使，在实例化后应被视为“只读”，禁止在 UI 线程二次修改其内部数组。
+ * 描述: 定义光谱仪的硬件配置实体、核心测量数据载体以及特征峰追踪模型。
+ * 作为核心领域模型层，本文件统一管理设备参数同步与采集数据的跨线程流转。
+ * 维护指南: SpectralData 实例化后应视为不可变对象，严禁在多线程流转中修改内部数组；调整配置参数时需参考硬件手册中的最小积分时间与像素范围。
  */
 
 namespace GD_ControlCenter_WPF.Models.Spectrometer
 {
-    #region 1. 硬件配置模型 (用于 UI 绑定与硬件初始化)
+    #region 1. 硬件配置模型
 
     /// <summary>
-    /// 光谱仪配置模型。
-    /// 职责：存储设备硬件信息与测量参数，支持 WPF 数据绑定以实现参数同步更新。
+    /// 光谱仪硬件配置实体。
+    /// 用于存储设备身份信息、SDK 句柄及采集参数，支持与 UI 层的双向绑定。
     /// </summary>
     public partial class SpectrometerConfig
     {
-        // --- 身份标识 ---
+        /// <summary>
+        /// 设备的唯一出厂序列号。
+        /// </summary>
         public string SerialNumber = string.Empty;
+
+        /// <summary>
+        /// 设备的友好显示名称。
+        /// </summary>
         public string DeviceName = string.Empty;
 
-        // --- 运行时句柄与状态 ---
         /// <summary>
-        /// SDK 操作句柄。初始化成功后由 AVS_Activate 返回，断开时销毁。
+        /// SDK 操作句柄。在设备激活后由 AVS_Activate 返回，用于后续所有硬件通信。
         /// </summary>
         public int DeviceHandle = -1;
+
+        /// <summary>
+        /// 标记当前设备是否已成功建立物理连接并完成初始化。
+        /// </summary>
         public bool IsConnected = false;
 
-        // --- 采集参数配置 ---
         /// <summary>
-        /// 积分时间（Integration Time），单位为毫秒 (ms)。
+        /// 积分时间，单位为毫秒 (ms)。
+        /// 控制传感器曝光时长。
         /// </summary>
         public float IntegrationTimeMs = 100f;
 
         /// <summary>
-        /// 硬件采样的平均次数（NrAverages）。
+        /// 硬件内部采样的平均次数。
+        /// 通过多次采集取平均值来提升信噪比。
         /// </summary>
         public uint AveragingCount = 5;
 
         /// <summary>
-        /// 起始像素索引。
+        /// 数据采集的起始像素索引（通常为 0）。
         /// </summary>
         public ushort StartPixel = 0;
 
         /// <summary>
-        /// 终止像素索引。
+        /// 数据采集的终止像素索引（根据传感器硬件定义，如 2047 或 4095）。
         /// </summary>
         public ushort StopPixel = 4095;
 
-        // --- 高级特性 ---
         /// <summary>
         /// 是否开启硬件过曝（饱和）检测拦截。
+        /// 开启后，若数据达到计数上限将触发警告。
         /// </summary>
         public bool IsSaturationDetectionEnabled = true;
 
-        public float MinIntegrationTime = 5.0f; // 硬件允许的最小积分时间
+        /// <summary>
+        /// 硬件允许的最小积分时间下限（单位：ms）。
+        /// 防止设定过小值导致 SDK 报错。
+        /// </summary>
+        public float MinIntegrationTime = 5.0f;
     }
 
     #endregion
 
-    #region 2. 核心数据载体 (用于跨线程/模块数据流转)
+    #region 2. 核心数据载体
 
     /// <summary>
-    /// 光谱数据实体 (DTO - Data Transfer Object)。
-    /// 职责：承载一次完整测量所生成的波长与强度数组。
-    /// 警告：作为跨线程传递的信使，一旦生成，严禁任何模块直接修改其内部的数组元素！
+    /// 光谱测量数据。
+    /// 承载单次测量生成的完整波长与强度信息，作为跨模块通信的标准化信使。
     /// </summary>
     public class SpectralData
     {
         /// <summary>
-        /// 波长数组（X轴，单位：nm）。
+        /// 波长数组（X 轴数据），单位：纳米 (nm)。
+        /// 对应每个像素点经过校准后的物理波长。
         /// </summary>
         public double[] Wavelengths { get; set; } = Array.Empty<double>();
 
         /// <summary>
-        /// 光强/计数数组（Y轴，单位：Counts）。
+        /// 光强/计数数组（Y 轴数据），单位：Counts。
+        /// 记录传感器感应到的原始光子计数。
         /// </summary>
         public double[] Intensities { get; set; } = Array.Empty<double>();
 
         /// <summary>
-        /// 光谱数据的精确生成时间戳。
+        /// 原始光谱数据生成的精确时间戳。
         /// </summary>
         public DateTime AcquisitionTime { get; set; } = DateTime.Now;
 
         /// <summary>
         /// 数据来源设备的序列号。
-        /// 在多机拼接场景中，标明该数据是由哪个物理设备采集的（拼接后的数据通常标记为 "Combined_System"）。
+        /// 在多机系统中用于区分数据归属。
         /// </summary>
         public string SourceDeviceSerial { get; set; } = string.Empty;
 
+        /// <summary>
+        /// 初始化 SpectralData 的空实例。
+        /// </summary>
         public SpectralData() { }
 
+        /// <summary>
+        /// 使用指定的波长、强度和设备标识初始化 SpectralData 实例。
+        /// </summary>
+        /// <param name="wavelengths">波长数组</param>
+        /// <param name="intensities">光强数组</param>
+        /// <param name="serial">来源设备序列号</param>
         public SpectralData(double[] wavelengths, double[] intensities, string serial = "")
         {
             Wavelengths = wavelengths;
@@ -105,38 +126,43 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
 
     #endregion
 
-    #region 3. 动态追踪模型 (用于时序图与 UI 交互)
+    #region 3. 动态追踪模型
 
     /// <summary>
-    /// 动态特征峰追踪模型。
-    /// 职责：记录用户在主界面标记的特征峰，并在后台实时计算中追踪该峰值的真实坐标。
+    /// 特征峰实时追踪模型。
+    /// 封装了寻峰算法所需的基准参数与实时计算结果。
     /// </summary>
     public partial class TrackedPeak : ObservableObject
     {
         /// <summary>
-        /// 用户初始点击的基准波长。
+        /// 用户在 UI 上手动标记或设定的基准波长中心点。
         /// </summary>
         [ObservableProperty]
         private double _baseWavelength;
 
         /// <summary>
-        /// 寻峰算法的搜索容差窗口 (±nm)。
+        /// 寻峰算法在基准波长左右波及的搜索范围容差 (±nm)。
         /// </summary>
         [ObservableProperty]
         private double _toleranceWindow = 0.2;
 
         /// <summary>
-        /// 当前帧实际追踪到的真实最高点波长 (X)。
+        /// 算法当前在窗口内实时追踪到的最高点波长位置 (X)。
         /// </summary>
         [ObservableProperty]
         private double _currentWavelength;
 
         /// <summary>
-        /// 当前帧实际追踪到的真实最高点光强 (Y)。
+        /// 算法当前实时追踪到的最高点光强数值 (Y)。
         /// </summary>
         [ObservableProperty]
         private double _currentIntensity;
 
+        /// <summary>
+        /// 构造一个特征峰追踪实例。
+        /// </summary>
+        /// <param name="baseWavelength">初始锚点波长</param>
+        /// <param name="toleranceWindow">搜索带宽（默认为 2.0nm）</param>
         public TrackedPeak(double baseWavelength, double toleranceWindow = 2.0)
         {
             BaseWavelength = baseWavelength;

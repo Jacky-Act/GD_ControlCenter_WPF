@@ -2,76 +2,82 @@
 
 /*
  * 文件名: ISpectrometerService.cs
- * 模块: 硬件驱动层 (Hardware Abstraction Layer)
- * 描述: 单个光谱仪硬件操作的标准契约。
- * 架构规范:
- * 1. 业务层（如 Manager 或 ViewModel）只允许依赖此接口，绝对不能直接调用底层 SDK。
- * 2. 隐藏底层 C++ 句柄的概念，对外只暴露面向对象的 Config 和 SpectralData。
+ * 描述: 定义单个光谱仪硬件操作的标准抽象接口。
+ * 本接口屏蔽了底层 C++ SDK 的句柄操作细节，为业务层提供面向对象的配置管理与数据采集契约。
+ * 维护指南: 扩展新功能（如外部触发模式）时，应在此定义契约并在实现类中通过全局锁保护 SDK 调用；DataReady 事件订阅者需注意线程同步问题。
  */
 
 namespace GD_ControlCenter_WPF.Services.Spectrometer
 {
+    /// <summary>
+    /// 光谱仪服务接口：标准化硬件初始化、参数配置及数据采集行为。
+    /// </summary>
     public interface ISpectrometerService : IDisposable
     {
-        #region 1. 状态与配置 (State & Configuration)
+        #region 1. 状态与配置
 
         /// <summary>
-        /// 获取当前光谱仪的硬件配置与参数模型。
+        /// 获取当前光谱仪的硬件配置实体（包含句柄、序列号、积分时间等）。
         /// </summary>
         SpectrometerConfig Config { get; }
 
         /// <summary>
-        /// 获取当前设备是否正处于“持续测量”状态。
+        /// 指示当前硬件是否正处于无限循环的“持续测量”模式中。
         /// </summary>
         bool IsMeasuring { get; }
 
         #endregion
 
-        #region 2. 数据流事件 (Data Event)
+        #region 2. 数据流事件
 
         /// <summary>
-        /// 当底层硬件完成一次完整的数据采集并成功解析后触发。
-        /// 注意：此事件可能在后台线程触发，订阅方若要更新 UI 必须自行 Dispatcher.Invoke。
+        /// 数据就绪事件：当底层硬件完成一次物理采集并解析为 C# 实体后异步触发。
+        /// 参数：<see cref="SpectralData"/> 包含波长与强度的完整数据包。
         /// </summary>
         event Action<SpectralData> DataReady;
 
         #endregion
 
-        #region 3. 核心控制动作 (Core Controls)
+        #region 3. 核心控制动作
 
         /// <summary>
-        /// 异步初始化光谱仪硬件：激活设备并读取硬件出厂参数（如最大像素数）。
+        /// 异步初始化光谱仪：执行硬件激活、ADC 位数协商及物理像素数获取。
         /// </summary>
+        /// <returns>初始化成功返回 true，否则返回 false。</returns>
         Task<bool> InitializeAsync();
 
         /// <summary>
-        /// 将当前 Config 模型中的参数（如积分时间）强行装载下发到硬件。
-        /// 通常在开始测量前调用。
+        /// 同步下发配置参数：将内存中的 Config 映射至底层 SDK 缓冲区。
         /// </summary>
+        /// <returns>SDK 返回的状态码，0 表示准备就绪。</returns>
         int ApplyConfiguration();
 
         /// <summary>
-        /// 异步安全地更新硬件测量配置。
-        /// 内部机制：如果当前正在采集中，会自动暂停采集 -> 下发新参数 -> 恢复采集，确保硬件状态机不崩溃。
+        /// 异步安全更新配置：在不关闭设备的前提下，自动处理“停止->更新->重启”逻辑。
         /// </summary>
+        /// <param name="newIntegrationTime">新的积分时间（单位：ms）。</param>
+        /// <param name="newAverages">新的硬件采样平均次数。</param>
+        /// <returns>操作状态码。</returns>
         Task<int> UpdateConfigurationAsync(float newIntegrationTime, uint newAverages);
 
         #endregion
 
-        #region 4. 测量模式 (Measurement Modes)
+        #region 4. 测量模式控制
 
         /// <summary>
-        /// 异步执行单次测量，挂起当前线程直到底层硬件返回数据。
+        /// 异步单次测量：挂起当前任务直至硬件返回单帧数据。
         /// </summary>
+        /// <param name="ct">用于取消等待的任务令牌。</param>
+        /// <returns>采集到的光谱数据实体。</returns>
         Task<SpectralData> MeasureOnceAsync(CancellationToken ct = default);
 
         /// <summary>
-        /// 启动持续测量模式。设备将进入无限采集循环，数据通过 DataReady 事件源源不断地推送。
+        /// 启动持续测量：开启硬件回调模式，数据将通过 <see cref="DataReady"/> 持续推送。
         /// </summary>
         void StartContinuousMeasurement();
 
         /// <summary>
-        /// 停止当前的持续测量动作，安全中断底层 C++ 采集循环。
+        /// 停止测量：中断硬件采集循环并安全释放底层总线占用。
         /// </summary>
         void StopMeasurement();
 

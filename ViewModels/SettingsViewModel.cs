@@ -6,67 +6,143 @@ using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Windows;
+
+/*
+ * 文件名: SettingsViewModel.cs
+ * 描述: 系统全局设置视图模型。负责管理串口通讯配置、光谱仪全局使能开关、自动点火延时参数以及各类数据导出路径的持久化。
+ * 维护指南: 
+ * 1. 串口通讯采用固定波特率 9600。
+ * 2. 点火延时参数（IgnitionDelaySeconds）范围限制在 1.0s - 5.0s 之间，步进为 0.1s。
+ * 3. 所有的路径设置在首次为空时均会自动回退至系统桌面路径。
+ * 4. 光谱仪使能切换时涉及硬件连接/断开的重型操作，已通过后台任务异步处理。
+ */
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
+    /// <summary>
+    /// 全局设置页面视图模型。
+    /// </summary>
     public partial class SettingsViewModel : ObservableObject
     {
+        #region 1. 依赖服务与物理常量
+
+        /// <summary>
+        /// 串口通讯核心服务。
+        /// </summary>
         private readonly ISerialPortService _serialService;
+
+        /// <summary>
+        /// JSON 配置管理服务。
+        /// </summary>
         private readonly JsonConfigService _configService;
+
+        /// <summary>
+        /// 通讯波特率常量：9600。
+        /// </summary>
         private const int BAUD_RATE = 9600;
 
+        #endregion
+
+        #region 2. UI 绑定属性 (串口与连接状态)
+
+        /// <summary>
+        /// 系统当前识别到的所有可用串口名称集合。
+        /// </summary>
         [ObservableProperty]
         private ObservableCollection<string> _availablePorts = new();
 
+        /// <summary>
+        /// 用户在下拉列表中选中的目标串口号。
+        /// </summary>
         [ObservableProperty]
         private string? _selectedPort;
 
+        /// <summary>
+        /// 界面显示的串口连接状态描述文本（如：“已连接 (COM2)”）。
+        /// </summary>
         [ObservableProperty]
         private string _statusText = "未连接";
 
+        #endregion
+
+        #region 3. UI 绑定属性 (功能配置与路径)
+
+        /// <summary>
+        /// 全局光谱仪使能开关。
+        /// 开启时触发硬件扫描与初始化，关闭时执行全线断开。
+        /// </summary>
         [ObservableProperty]
         private bool _isSpectrometerEnabled;
 
+        /// <summary>
+        /// 是否开启自动点火重连逻辑。
+        /// </summary>
         [ObservableProperty]
         private bool _isAutoReigniteEnabled;
 
+        /// <summary>
+        /// 点火触发后的安全等待延时（单位：秒）。
+        /// </summary>
         [ObservableProperty]
         private double _ignitionDelaySeconds;
 
+        /// <summary>
+        /// 实时光谱单帧保存的默认导出文件夹路径。
+        /// </summary>
         [ObservableProperty]
         private string _singleSaveExportPath = string.Empty;
 
+        /// <summary>
+        /// 时序图数据自动保存的目录路径。
+        /// </summary>
         [ObservableProperty]
-        private string _timeSeriesSaveDirectory;
+        private string _timeSeriesSaveDirectory = string.Empty;
 
+        #endregion
+
+        #region 4. 初始化
+
+        /// <summary>
+        /// 构造设置页面视图模型。
+        /// </summary>
+        /// <param name="serialService">串口服务。</param>
+        /// <param name="configService">配置服务。</param>
         public SettingsViewModel(ISerialPortService serialService, JsonConfigService configService)
         {
             _serialService = serialService;
             _configService = configService;
 
+            // 注册串口底层状态变更的回调
             _serialService.ConnectionStatusChanged += OnConnectionStatusChanged;
 
-            // 软件启动时，加载上一次保存的状态
+            // 恢复历史配置状态
             var config = _configService.Load();
             IsSpectrometerEnabled = config.IsSpectrometerEnabled;
             IsAutoReigniteEnabled = config.IsAutoReigniteEnabled;
             IgnitionDelaySeconds = config.IgnitionDelaySeconds;
-            // 【统一风格】：如果没设置过单次保存路径，UI 上也默认显示桌面
+
+            // 路径初始化策略：若配置为空，默认指向桌面
             SingleSaveExportPath = string.IsNullOrWhiteSpace(config.SingleSaveExportPath)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
                 : config.SingleSaveExportPath;
 
-            // 时序图保存路径，为空则默认显示桌面
             TimeSeriesSaveDirectory = string.IsNullOrWhiteSpace(config.TimeSeriesSaveDirectory)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
                 : config.TimeSeriesSaveDirectory;
 
+            // 初始刷新物理串口列表
             RefreshPorts();
         }
 
-        // 拦截开关改变事件：当拨动光谱仪开关时触发
+        #endregion
+
+        #region 5. 属性变更拦截器 (业务逻辑联动)
+
+        /// <summary>
+        /// 拦截光谱仪开关状态变更。
+        /// 职责：同步持久化配置，并驱动硬件管理器执行异步连断逻辑。
+        /// </summary>
         partial void OnIsSpectrometerEnabledChanged(bool value)
         {
             var config = _configService.Load();
@@ -75,29 +151,31 @@ namespace GD_ControlCenter_WPF.ViewModels
 
             if (value)
             {
+                // 开启：启动异步硬件发现与初始化流程
                 _ = SpectrometerManager.Instance.DiscoverAndInitDevicesAsync();
             }
             else
             {
-                // 断开：【修改这里】将其丢入后台线程池执行，解放 UI 线程
+                // 关闭：在后台线程执行断开清理，防止由于 USB 句柄释放导致的 UI 响应迟钝
                 _ = Task.Run(() =>
                 {
                     SpectrometerManager.Instance.DisconnectAll();
                 });
             }
 
-            // 构造特殊标识的 Config 用于全局消息传递
+            // 构建广播消息，通知系统其余组件光谱总开关状态变化
             var globalStatusConfig = new SpectrometerConfig
             {
-                SerialNumber = "GLOBAL_SWITCH", // 特殊标识，用于区分单机报警
+                SerialNumber = "GLOBAL_SWITCH",
                 IsConnected = value
             };
 
-            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(
-                new SpectrometerStatusMessage(globalStatusConfig));
+            WeakReferenceMessenger.Default.Send(new SpectrometerStatusMessage(globalStatusConfig));
         }
 
-        // 拦截开关改变事件：当拨动自动点火开关时触发
+        /// <summary>
+        /// 拦截点火开关状态变更。
+        /// </summary>
         partial void OnIsAutoReigniteEnabledChanged(bool value)
         {
             var config = _configService.Load();
@@ -105,29 +183,39 @@ namespace GD_ControlCenter_WPF.ViewModels
             _configService.Save(config);
         }
 
-        // 【新增】拦截用户输入或调整时的数据变更，自动保存并限制范围
+        /// <summary>
+        /// 拦截点火延时参数变更。
+        /// 职责：强制执行数值物理边界限制并执行持久化。
+        /// </summary>
         partial void OnIgnitionDelaySecondsChanged(double value)
         {
-            // 安全限制：1.0 到 5.0 之间
+            // 物理安全边界：1.0s - 5.0s
             if (value < 1.0) IgnitionDelaySeconds = 1.0;
             else if (value > 5.0) IgnitionDelaySeconds = 5.0;
             else
             {
                 var config = _configService.Load();
-                config.IgnitionDelaySeconds = Math.Round(value, 1); // 保留1位小数
+                config.IgnitionDelaySeconds = Math.Round(value, 1); // 保证一秒一位精度
                 _configService.Save(config);
             }
         }
 
+        #endregion
+
+        #region 6. 串口通讯逻辑
+
         /// <summary>
-        /// 处理底层抛出的连接状态变更
+        /// 响应底层连接状态变更。
         /// </summary>
         private void OnConnectionStatusChanged(bool isOpen)
         {
-            // 底层事件可能在其他线程触发，利用 Dispatcher 切换回 UI 线程更新属性
             Application.Current.Dispatcher.Invoke(UpdateStatusUI);
         }
 
+        /// <summary>
+        /// 刷新可用串口列表。
+        /// 包含自动尝试连接逻辑。
+        /// </summary>
         [RelayCommand]
         private void RefreshPorts()
         {
@@ -138,11 +226,13 @@ namespace GD_ControlCenter_WPF.ViewModels
                 AvailablePorts.Add(port);
             }
 
+            // 若当前未连接且检测到串口，执行自动重连逻辑
             if (!_serialService.IsOpen)
             {
                 _serialService.AutoConnect();
             }
 
+            // 更新选中项显示
             if (_serialService.IsOpen && _serialService.CurrentPortName != null && AvailablePorts.Contains(_serialService.CurrentPortName))
             {
                 SelectedPort = _serialService.CurrentPortName;
@@ -159,55 +249,51 @@ namespace GD_ControlCenter_WPF.ViewModels
             UpdateStatusUI();
         }
 
+        /// <summary>
+        /// 执行手动串口连接请求。
+        /// </summary>
         [RelayCommand]
         private void Connect()
         {
             if (string.IsNullOrEmpty(SelectedPort)) return;
 
-            // 如果当前已经处于连接状态，且选中的正是当前串口，则什么都不做
-            if (_serialService.IsOpen && _serialService.CurrentPortName == SelectedPort)
-            {
-                return;
-            }
+            // 状态防重：若已连接当前选中的串口则忽略
+            if (_serialService.IsOpen && _serialService.CurrentPortName == SelectedPort) return;
 
-            // 如果当前连接着其他串口，先断开旧的
-            if (_serialService.IsOpen)
-            {
-                _serialService.Close();
-            }
+            // 互斥：先关闭旧连接再尝试新连接
+            if (_serialService.IsOpen) _serialService.Close();
 
-            // 尝试打开新串口
             if (!_serialService.Open(SelectedPort, BAUD_RATE))
             {
-                MessageBox.Show($"无法打开串口 {SelectedPort}，可能被占用。", "连接失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"无法打开串口 {SelectedPort}，该设备可能正在被其他程序占用。", "连接冲突", MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
             UpdateStatusUI();
         }
 
+        /// <summary>
+        /// 同步连接状态文本至 UI。
+        /// </summary>
         private void UpdateStatusUI()
         {
-            // 只负责更新右侧的状态提示文字
-            if (_serialService.IsOpen)
-            {
-                StatusText = $"已连接 ({_serialService.CurrentPortName ?? "未知"})";
-            }
-            else
-            {
-                StatusText = "未连接";
-            }
+            StatusText = _serialService.IsOpen
+                ? $"已连接 ({_serialService.CurrentPortName ?? "未知"})"
+                : "未连接";
         }
 
+        #endregion
+
+        #region 7. 导出路径管理
+
         /// <summary>
-        /// 打开文件夹选择对话框，并自动持久化保存新路径
+        /// 浏览并保存单次光谱保存路径。
         /// </summary>
         [RelayCommand]
         private void BrowseExportPath()
         {
-            // 使用 Ookii 调出 Windows 10/11 风格的现代文件夹选择器
             var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
             {
-                Description = "选择单次保存的默认文件夹",
+                Description = "选择单次采样数据的导出目录",
                 UseDescriptionForTitle = true,
                 SelectedPath = SingleSaveExportPath
             };
@@ -215,22 +301,21 @@ namespace GD_ControlCenter_WPF.ViewModels
             if (dialog.ShowDialog() == true)
             {
                 SingleSaveExportPath = dialog.SelectedPath;
-
-                // 立即持久化保存到本地 JSON
                 var config = _configService.Load();
                 config.SingleSaveExportPath = dialog.SelectedPath;
                 _configService.Save(config);
             }
         }
 
-
+        /// <summary>
+        /// 浏览并保存时序图自动备份路径。
+        /// </summary>
         [RelayCommand]
         private void BrowseTimeSeriesDirectory()
         {
-            // 复用 WinForms 文件夹选择器
             using var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "选择时序图自动保存目录",
+                Description = "选择时序监测数据的备份目录",
                 UseDescriptionForTitle = true,
                 SelectedPath = TimeSeriesSaveDirectory
             };
@@ -238,26 +323,34 @@ namespace GD_ControlCenter_WPF.ViewModels
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 TimeSeriesSaveDirectory = dialog.SelectedPath;
-
-                // 【说明】：更新到本地 Json 配置中 (根据您实际的保存逻辑调整)
                 var config = _configService.Load();
                 config.TimeSeriesSaveDirectory = TimeSeriesSaveDirectory;
                 _configService.Save(config);
             }
         }
 
-        // 【新增】给“上箭头”绑定的命令
+        #endregion
+
+        #region 8. 参数精细化调整指令
+
+        /// <summary>
+        /// 增加点火延时时间（+0.1s）。
+        /// </summary>
         [RelayCommand]
         private void IncreaseIgnitionDelay()
         {
             IgnitionDelaySeconds = Math.Round(Math.Min(5.0, IgnitionDelaySeconds + 0.1), 1);
         }
 
-        // 【新增】给“下箭头”绑定的命令
+        /// <summary>
+        /// 减少点火延时时间（-0.1s）。
+        /// </summary>
         [RelayCommand]
         private void DecreaseIgnitionDelay()
         {
             IgnitionDelaySeconds = Math.Round(Math.Max(1.0, IgnitionDelaySeconds - 0.1), 1);
         }
+
+        #endregion
     }
 }

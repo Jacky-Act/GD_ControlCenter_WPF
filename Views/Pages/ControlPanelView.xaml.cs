@@ -3,6 +3,7 @@ using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using GD_ControlCenter_WPF.Services.Spectrometer.Logic;
+using GD_ControlCenter_WPF.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using ScottPlot;
 using System.Windows;
@@ -11,74 +12,127 @@ using System.Windows.Input;
 
 /*
  * 文件名: ControlPanelView.xaml.cs
- * 模块: 视图层 (UI Code-Behind)
- * 描述: 主控制面板的图表渲染引擎。
- * 架构职责: 
- * 1. 绝对不包含任何业务逻辑。只负责监听 ViewModel 广播的数据消息，然后把点画在屏幕上。
- * 2. 【双图层渲染】：负责协调“红色静态参考波形”与“紫色动态实时波形”的叠加显示。
- * 3. 【坐标系接管】：处理用户双击滚轮、框选放大以及代码触发的 AutoScale 坐标轴自适应。
+ * 描述: 主控制面板光谱图表渲染引擎。支持实时波形与参考波形的双图层叠加、渲染节流（33ms）、触控框选放大及坐标轴状态持久化。
+ * 本类作为 View 层，仅负责响应消息总线的数据推送并驱动 ScottPlot 进行物理绘图，不处理任何业务计算。
+ * 维护指南: 
+ * 1. 渲染节流阀限制为 30FPS，修改 _lastRenderTime 逻辑需考虑 UI 线程负载。
+ * 2. 坐标轴记忆功能通过 SaveLimitsToViewModel 实现，依赖于 ViewModel 层的 SavedAxisLimits 属性。
+ * 3. 触控框选逻辑通过拦截 Preview 事件屏蔽了 ScottPlot 原生的右键平移。
  */
 
 namespace GD_ControlCenter_WPF.Views.Pages
 {
+    /// <summary>
+    /// ControlPanelView.xaml 的交互逻辑：处理高性能光谱图表渲染与交互。
+    /// </summary>
     public partial class ControlPanelView : UserControl
     {
         #region 1. 渲染状态与缓存变量
 
         /// <summary>
-        /// 实时波形的主题色（紫色）。
+        /// 实时波形曲线颜色（主题紫色）。
         /// </summary>
         private readonly string _primaryColorHex = "#673ab7";
 
         /// <summary>
-        /// 寻峰服务。这里破例引入 Service，仅仅是为了在用户右键图表时，能把点击坐标传给后台算法。
+        /// 寻峰服务引用，用于将图表点击坐标映射至后台算法。
         /// </summary>
-        private readonly PeakTrackingService _peakTrackingService;
+        private readonly PeakTrackingService _peakTrackingService = null!;
 
         /// <summary>
-        /// 坐标系初始化标志。第一帧数据到来时，需要给 X/Y 轴定下基础边界规则。
+        /// 标识是否为首帧数据，用于初始化坐标轴视图规则。
         /// </summary>
         private bool _isFirstFrame = true;
 
         /// <summary>
-        /// 渲染节流阀的时间戳记录。限制最高刷新率为 30FPS（~33ms），防止 GPU 满载。
+        /// 记录上一次物理渲染的时刻，实现 30FPS 节流限制。
         /// </summary>
         private DateTime _lastRenderTime = DateTime.MinValue;
 
         /// <summary>
-        /// 全局最大视野边界限制。防止用户缩小图表时看到无意义的空白区域。
+        /// 图表允许显示的物理最大边界限制。
         /// </summary>
         private AxisLimits? _maxLimits = null;
 
         /// <summary>
-        /// 记录用户在图表上点击右键时的真实物理波长坐标 (X轴)。
+        /// 记录最后一次右键点击处的 X 轴波长坐标。
         /// </summary>
         private double _lastRightClickX = 0;
 
         /// <summary>
-        /// 请求标志：由“自动范围”按钮触发，通知下一次 RenderPlot 时强制执行一次 AutoScale。
+        /// 指示图表是否处于持续自动量程追踪模式。
         /// </summary>
         private bool _isContinuousAutoScale = true;
 
         /// <summary>
-        /// 当前手中握有的最新一帧实时硬件光谱数据。
+        /// 缓存当前最新的实时光谱数据快照。
         /// </summary>
         private SpectralData? _currentData;
 
         /// <summary>
-        /// 当前载入的参考文件光谱数据（底层图层）。
-        /// 必须缓存数据本身，而不是图层对象，以防止图表 Clear() 时被误删。
+        /// 缓存当前载入的参考文件数据，用于底层图层绘制。
         /// </summary>
         private SpectralData? _cachedReferenceData = null;
 
-        // --- 触屏框选专用变量 ---
+        /// <summary>
+        /// 框选放大起始点（屏幕像素坐标）。
+        /// </summary>
         private Point _boxZoomStart;
+
+        /// <summary>
+        /// 标识当前是否正处于框选操作中。
+        /// </summary>
         private bool _isBoxZooming = false;
 
-        // 【新增 1】：用于强引用的 ViewModel 缓存
-        private GD_ControlCenter_WPF.ViewModels.ControlPanelViewModel? _vm;
+        /// <summary>
+        /// 关联的视图模型强引用缓存。
+        /// </summary>
+        private ControlPanelViewModel? _vm;
 
-        // 【新增 2】：实时保存坐标的辅助方法
+        #endregion
+
+        #region 2. 初始化与 UI 事件订阅
+
+        /// <summary>
+        /// 构造函数：初始化图表控件、订阅输入事件及配置自定义菜单。
+        /// </summary>
+        public ControlPanelView()
+        {
+            InitializeComponent();
+
+            this.DataContextChanged += OnDataContextChanged;
+            _peakTrackingService = App.Services.GetRequiredService<PeakTrackingService>();
+
+            // 绑定交互事件
+            SpecPlot.PreviewMouseRightButtonDown += OnPlotRightClick;
+            SpecPlot.PreviewMouseLeftButtonDown += OnPlotLeftMouseDown;
+            SpecPlot.PreviewMouseMove += OnPlotMouseMove;
+            SpecPlot.PreviewMouseLeftButtonUp += OnPlotLeftMouseUp;
+
+            // 菜单与边距配置
+            SetupCustomMenu();
+            SpecPlot.Plot.Axes.Margins(0, 0.1);
+
+            // 坐标轴持久化监听：鼠标松开或滚轮停止时保存当前视野
+            SpecPlot.PreviewMouseUp += (s, e) =>
+            {
+                _isContinuousAutoScale = false;
+                SaveLimitsToViewModel();
+            };
+
+            SpecPlot.PreviewMouseWheel += (s, e) =>
+            {
+                _isContinuousAutoScale = false;
+                Dispatcher.BeginInvoke(new Action(SaveLimitsToViewModel), System.Windows.Threading.DispatcherPriority.Background);
+            };
+
+            // 页面卸载时执行最后一次保存
+            this.Unloaded += (s, e) => SaveLimitsToViewModel();
+        }
+
+        /// <summary>
+        /// 将当前图表的视图边界限制同步保存至 ViewModel。
+        /// </summary>
         private void SaveLimitsToViewModel()
         {
             if (_vm != null && !_isFirstFrame)
@@ -88,44 +142,8 @@ namespace GD_ControlCenter_WPF.Views.Pages
             }
         }
 
-        #endregion
-
-        #region 2. 初始化与 UI 事件订阅
-
-        public ControlPanelView()
-        {
-            InitializeComponent();
-            this.DataContextChanged += OnDataContextChanged;
-            _peakTrackingService = App.Services.GetRequiredService<PeakTrackingService>();
-
-            SpecPlot.PreviewMouseRightButtonDown += OnPlotRightClick;
-            SetupCustomMenu();
-            SpecPlot.Plot.Axes.Margins(0, 0.1);
-
-            // 【新增】：监听鼠标/单指触控事件，用于处理框选放大
-            SpecPlot.PreviewMouseLeftButtonDown += OnPlotLeftMouseDown;
-            SpecPlot.PreviewMouseMove += OnPlotMouseMove;
-            SpecPlot.PreviewMouseLeftButtonUp += OnPlotLeftMouseUp;
-
-            // 【核心修复 1：实时保存】：只要鼠标松开或滚轮滚动，立刻保存最新坐标！
-            SpecPlot.PreviewMouseUp += (s, e) =>
-            {
-                _isContinuousAutoScale = false; // 【新增】：用户松开鼠标拖拽，打断自动追踪
-                SaveLimitsToViewModel();
-            };
-
-            SpecPlot.PreviewMouseWheel += (s, e) =>
-            {
-                _isContinuousAutoScale = false; // 【新增】：用户滚动滚轮，打断自动追踪
-                Dispatcher.BeginInvoke(new Action(SaveLimitsToViewModel), System.Windows.Threading.DispatcherPriority.Background);
-            };
-
-            // 兜底保存
-            this.Unloaded += (s, e) => SaveLimitsToViewModel();
-        }
-
         /// <summary>
-        /// 构建图表右键弹出的寻峰菜单逻辑。
+        /// 配置图表右键自定义业务菜单（寻峰、移除标记）。
         /// </summary>
         private void SetupCustomMenu()
         {
@@ -135,9 +153,8 @@ namespace GD_ControlCenter_WPF.Views.Pages
             {
                 if (_currentData != null)
                 {
-                    // 根据当前屏幕缩放比例，动态计算一个合理的鼠标点击宽容度 (20像素)
+                    // 动态计算 20 像素对应的波长跨度作为寻峰窗口
                     double captureWindow = CalculateToleranceByPixels(20, 0.5);
-                    // 交给算法去纠正到真正的物理峰值
                     double snappedX = SpectrometerLogic.GetActualPeakWavelength(_currentData, _lastRightClickX, captureWindow);
                     _peakTrackingService.AddPeak(snappedX);
                     RenderPlot(_currentData);
@@ -162,13 +179,16 @@ namespace GD_ControlCenter_WPF.Views.Pages
             });
         }
 
+        /// <summary>
+        /// 处理右键点击：将点击像素转换为图表内部的物理波长坐标。
+        /// </summary>
         private void OnPlotRightClick(object sender, MouseButtonEventArgs e)
         {
             var pos = e.GetPosition(SpecPlot);
             double dpiScaleX = 1.0, dpiScaleY = 1.0;
 
             PresentationSource source = PresentationSource.FromVisual(SpecPlot);
-            if (source != null && source.CompositionTarget != null)
+            if (source?.CompositionTarget != null)
             {
                 dpiScaleX = source.CompositionTarget.TransformToDevice.M11;
                 dpiScaleY = source.CompositionTarget.TransformToDevice.M22;
@@ -177,45 +197,39 @@ namespace GD_ControlCenter_WPF.Views.Pages
             float physicalX = (float)(pos.X * dpiScaleX);
             float physicalY = (float)(pos.Y * dpiScaleY);
 
-            // 将鼠标像素坐标转换为图表内部的真实波长坐标
             var coordinates = SpecPlot.Plot.GetCoordinates(physicalX, physicalY);
             _lastRightClickX = coordinates.X;
         }
 
         #endregion
 
-        #region 3. MVVM 消息总线接管 (数据获取)
+        #region 3. 消息总线接管逻辑
 
         /// <summary>
-        /// 当页面的 ViewModel 绑定完成时，开启对全局消息总线的监听。
+        /// 响应 DataContext 变更：注销旧订阅并重新绑定全局消息监听器。
         /// </summary>
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             WeakReferenceMessenger.Default.UnregisterAll(this);
 
-            // 【核心修复 2】：拿到 DataContext 的第一瞬间，就用 _vm 把它牢牢抓死
-            if (e.NewValue is GD_ControlCenter_WPF.ViewModels.ControlPanelViewModel vm)
+            if (e.NewValue is ControlPanelViewModel vm)
             {
                 _vm = vm;
             }
 
-            // 监听：硬件产生的新光谱数据
+            // 数据流订阅：实时光谱
             WeakReferenceMessenger.Default.Register<SpectralDataMessage>(this, (r, m) =>
             {
                 OnPlotUpdateRequested(m.Value);
             });
 
-            // 监听：ViewModel 要求加载参考文件
+            // 路由订阅：参考图层控制
             WeakReferenceMessenger.Default.Register<LoadReferencePlotMessage>(this, (r, m) =>
             {
                 Dispatcher.Invoke(() =>
                 {
                     _cachedReferenceData = m.Value;
-
-                    // 无论有没有实时数据，强制重绘当前手中的所有图层
                     RenderPlot(_currentData);
-
-                    // 如果当前硬件没开，针对刚刚加载的参考文件进行一次坐标轴自适应，防止画面空空如也
                     if (_currentData == null)
                     {
                         SpecPlot.Plot.Axes.AutoScale();
@@ -224,98 +238,72 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 });
             });
 
-            // 监听：ViewModel 要求关闭参考文件
             WeakReferenceMessenger.Default.Register<ClearReferencePlotMessage>(this, (r, m) =>
             {
-                Dispatcher.Invoke(() =>
-                {
-                    _cachedReferenceData = null;
-                    RenderPlot(_currentData);
-                });
+                Dispatcher.Invoke(() => { _cachedReferenceData = null; RenderPlot(_currentData); });
             });
 
-            // 监听：用户点击“自动范围”按钮
+            // 交互订阅：量程切换请求
             WeakReferenceMessenger.Default.Register<AutoRangeRequestMessage>(this, (r, m) =>
             {
                 Dispatcher.Invoke(() =>
                 {
-                    _isContinuousAutoScale = true; // 【修改】：开启持续自动追踪模式
+                    _isContinuousAutoScale = true;
                     if (_currentData != null) RenderPlot(_currentData);
-                    else if (_cachedReferenceData != null)
-                    {
-                        SpecPlot.Plot.Axes.Rules.Clear();
-                        SpecPlot.Plot.Axes.AutoScale();
-                        SpecPlot.Refresh();
-                    }
+                    else { SpecPlot.Plot.Axes.Rules.Clear(); SpecPlot.Plot.Axes.AutoScale(); SpecPlot.Refresh(); }
                 });
             });
 
-            // 监听：用户点击“最大范围”按钮
             WeakReferenceMessenger.Default.Register<MaxRangeRequestMessage>(this, (r, m) =>
             {
                 Dispatcher.Invoke(() =>
                 {
-                    // 【核心修复】：点击最大范围时，必须强制打断自动追踪状态！
                     _isContinuousAutoScale = false;
-
-                    if (_maxLimits.HasValue)
-                        SpecPlot.Plot.Axes.SetLimits(_maxLimits.Value);
-                    else if (_cachedReferenceData != null)
-                    {
-                        double minX = _cachedReferenceData.Wavelengths[0];
-                        double maxX = _cachedReferenceData.Wavelengths[^1];
-                        SpecPlot.Plot.Axes.SetLimits(minX, maxX, -1000, 65535);
-                    }
+                    if (_maxLimits.HasValue) SpecPlot.Plot.Axes.SetLimits(_maxLimits.Value);
                     SpecPlot.Refresh();
-
-                    // 顺手保存一下最新坐标，确保切换页面不丢失
                     SaveLimitsToViewModel();
                 });
             });
 
-            // 恢复状态逻辑
-            if (_vm != null)
+            // 恢复视图状态
+            RestoreViewState();
+        }
+
+        /// <summary>
+        /// 从 ViewModel 恢复历史视图边界与数据图层。
+        /// </summary>
+        private void RestoreViewState()
+        {
+            if (_vm == null) return;
+            bool needRefresh = false;
+
+            if (_vm.IsReferenceFileLoaded && _vm.LoadedReferenceData != null)
             {
-                bool needRefresh = false;
+                _cachedReferenceData = _vm.LoadedReferenceData;
+                needRefresh = true;
+            }
 
-                if (_vm.IsReferenceFileLoaded && _vm.LoadedReferenceData != null)
-                {
-                    _cachedReferenceData = _vm.LoadedReferenceData;
-                    needRefresh = true;
-                }
+            if (_vm.LatestSpectralData != null)
+            {
+                _currentData = _vm.LatestSpectralData;
+                needRefresh = true;
+            }
 
-                if (_vm.LatestSpectralData != null)
+            if (needRefresh)
+            {
+                Dispatcher.Invoke(() =>
                 {
-                    _currentData = _vm.LatestSpectralData;
-                    needRefresh = true;
-                }
-
-                if (needRefresh)
-                {
-                    Dispatcher.Invoke(() =>
+                    RenderPlot(_currentData);
+                    if (_currentData == null)
                     {
-                        RenderPlot(_currentData);
-
-                        // 【核心修复 3】：处理只加载了参考图，但没开硬件的情况
-                        if (_currentData == null)
-                        {
-                            if (_vm.SavedAxisLimits != null)
-                            {
-                                SpecPlot.Plot.Axes.SetLimits(
-                                    _vm.SavedAxisLimits[0],
-                                    _vm.SavedAxisLimits[1],
-                                    _vm.SavedAxisLimits[2],
-                                    _vm.SavedAxisLimits[3]);
-                            }
-                            else
-                            {
-                                SpecPlot.Plot.Axes.AutoScale();
-                            }
-                            _isFirstFrame = false; // 标记首帧完成
-                            SpecPlot.Refresh();
-                        }
-                    });
-                }
+                        if (_vm.SavedAxisLimits != null)
+                            SpecPlot.Plot.Axes.SetLimits(_vm.SavedAxisLimits[0], _vm.SavedAxisLimits[1], _vm.SavedAxisLimits[2], _vm.SavedAxisLimits[3]);
+                        else
+                            SpecPlot.Plot.Axes.AutoScale();
+                        _isFirstFrame = false;
+                        SpecPlot.Refresh();
+                    }
+                });
             }
         }
 
@@ -324,107 +312,77 @@ namespace GD_ControlCenter_WPF.Views.Pages
         #region 4. 图表核心渲染引擎 (Render Engine)
 
         /// <summary>
-        /// 带有 33ms 节流阀的数据更新请求入口。
+        /// 执行异步渲染节流，确保 UI 线程不被高频采集数据淹没。
         /// </summary>
         private void OnPlotUpdateRequested(SpectralData data)
         {
-            // 防洪堤：如果两次渲染时间差小于 33ms (~30FPS)，直接抛弃这一帧，保护 UI 线程不卡死
             if ((DateTime.Now - _lastRenderTime).TotalMilliseconds < 33) return;
-
             _lastRenderTime = DateTime.Now;
-
-            // 异步抛回主线程画图
             Dispatcher.BeginInvoke(new Action(() => RenderPlot(data)));
         }
 
         /// <summary>
-        /// 物理绘制方法。支持双图层（参考与实时）叠加。
+        /// 物理重绘方法：协调参考层、实时层及寻峰标注层的叠加绘制。
         /// </summary>
         private void RenderPlot(SpectralData? liveData)
         {
-            // 1. 毁灭性重建：清空所有旧图层，防止多线程引发的内存泄漏和寻峰文本重叠
             SpecPlot.Plot.Clear();
 
-            // 2. 图层 底层：绘制参考文件（红色虚线）
+            // 底层：参考波形 (红色虚线)
             if (_cachedReferenceData != null)
             {
                 var refPlot = SpecPlot.Plot.Add.Scatter(_cachedReferenceData.Wavelengths, _cachedReferenceData.Intensities);
-                refPlot.MarkerSize = 0;
-                refPlot.LineWidth = 1.0f;
-                refPlot.Color = ScottPlot.Color.FromHex("#F44336");
+                refPlot.MarkerSize = 0; refPlot.LineWidth = 1.0f; refPlot.Color = ScottPlot.Color.FromHex("#F44336");
             }
 
-            // 3. 图层 顶层：绘制实时硬件光谱（紫色实线）
-            if (liveData != null && liveData.Wavelengths != null && liveData.Wavelengths.Length > 0)
+            // 顶层：实时波形 (紫色实线)
+            if (liveData?.Wavelengths != null && liveData.Wavelengths.Length > 0)
             {
                 _currentData = liveData;
                 var livePlot = SpecPlot.Plot.Add.Scatter(liveData.Wavelengths, liveData.Intensities);
-                livePlot.MarkerSize = 0;
-                livePlot.LineWidth = 1.5f;
-                livePlot.Color = ScottPlot.Color.FromHex(_primaryColorHex);
+                livePlot.MarkerSize = 0; livePlot.LineWidth = 1.5f; livePlot.Color = ScottPlot.Color.FromHex(_primaryColorHex);
 
-                // 根据当前数据决定是否要限制坐标轴缩放
                 HandleScalingLogic(liveData);
 
-                // 4. 寻峰图层：在波形之上画出所有被追踪的垂直标记线
-                var currentLimits = SpecPlot.Plot.Axes.GetLimits();
-                DrawTrackedPeaks(currentLimits.Top);
+                // 标注层：寻峰垂直线
+                DrawTrackedPeaks(SpecPlot.Plot.Axes.GetLimits().Top);
             }
 
-            // 5. 将刚才安排好的剧本推向屏幕
             SpecPlot.Refresh();
         }
 
         /// <summary>
-        /// 处理坐标轴的缩放与边界限制。
+        /// 处理坐标轴缩放逻辑与视野边界规则。
         /// </summary>
         private void HandleScalingLogic(SpectralData data)
         {
             if (_isFirstFrame)
             {
-                double minWavelength = data.Wavelengths[0];
-                double maxWavelength = data.Wavelengths[^1];
-
-                _maxLimits = new AxisLimits(minWavelength, maxWavelength, -1000, 70000);
-
-                var limitRule = new ScottPlot.AxisRules.MaximumBoundary(
-                    SpecPlot.Plot.Axes.Bottom,
-                    SpecPlot.Plot.Axes.Left,
-                    _maxLimits.Value
-                );
-
+                _maxLimits = new AxisLimits(data.Wavelengths[0], data.Wavelengths[^1], -1000, 70000);
                 SpecPlot.Plot.Axes.Rules.Clear();
-                SpecPlot.Plot.Axes.Rules.Add(limitRule);
+                SpecPlot.Plot.Axes.Rules.Add(new ScottPlot.AxisRules.MaximumBoundary(SpecPlot.Plot.Axes.Bottom, SpecPlot.Plot.Axes.Left, _maxLimits.Value));
 
-                if (_vm != null && _vm.SavedAxisLimits != null)
+                if (_vm?.SavedAxisLimits != null)
                 {
-                    SpecPlot.Plot.Axes.SetLimits(
-                        _vm.SavedAxisLimits[0],
-                        _vm.SavedAxisLimits[1],
-                        _vm.SavedAxisLimits[2],
-                        _vm.SavedAxisLimits[3]);
-
-                    _isContinuousAutoScale = false; // 如果有记忆的坐标，说明上次用户拖动过，关闭自动追踪
+                    SpecPlot.Plot.Axes.SetLimits(_vm.SavedAxisLimits[0], _vm.SavedAxisLimits[1], _vm.SavedAxisLimits[2], _vm.SavedAxisLimits[3]);
+                    _isContinuousAutoScale = false;
                 }
                 else
                 {
                     SpecPlot.Plot.Axes.AutoScale();
-                    _isContinuousAutoScale = true;  // 否则开启自动追踪
+                    _isContinuousAutoScale = true;
                 }
-
                 _isFirstFrame = false;
             }
             else if (_isContinuousAutoScale)
             {
-                // 【核心修复】：只要处于自动模式，每一帧都无条件执行自适应，并且不再将其设为 false！
                 SpecPlot.Plot.Axes.AutoScale();
-
                 if (_vm != null) _vm.SavedAxisLimits = null;
             }
         }
 
         /// <summary>
-        /// 绘制寻峰标记线。
+        /// 在图表上绘制被追踪的特征峰垂直标注线与数据文本。
         /// </summary>
         private void DrawTrackedPeaks(double yAxisMax)
         {
@@ -433,27 +391,25 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 var vLine = SpecPlot.Plot.Add.VerticalLine(peak.CurrentWavelength);
                 vLine.Color = ScottPlot.Color.FromHex("#F44336");
                 vLine.LineWidth = 1.0f;
-                vLine.LinePattern = ScottPlot.LinePattern.Solid;
 
-                var txt = SpecPlot.Plot.Add.Text($"X: {peak.CurrentWavelength:F2}\nY: {peak.CurrentIntensity:F0}",
-                                                 peak.CurrentWavelength,
-                                                 yAxisMax);
-
+                var txt = SpecPlot.Plot.Add.Text($"X: {peak.CurrentWavelength:F2}\nY: {peak.CurrentIntensity:F0}", peak.CurrentWavelength, yAxisMax);
                 txt.LabelFontColor = ScottPlot.Color.FromHex("#F44336");
-                txt.LabelFontSize = 14;
-                txt.LabelBold = true;
+                txt.LabelFontSize = 14; txt.LabelBold = true;
                 txt.LabelAlignment = ScottPlot.Alignment.UpperCenter;
             }
         }
 
+        #endregion
+
+        #region 5. 辅助计算与触屏框选
+
         /// <summary>
-        /// 辅助方法：将像素距离换算为真实的波长物理容差。
+        /// 将屏幕像素宽度转换为当前视图下的物理波长容差。
         /// </summary>
         private double CalculateToleranceByPixels(int pixelCount, double minTolerance)
         {
             double xAxisSpan = SpecPlot.Plot.Axes.Bottom.Range.Span;
-            double plotWidth = SpecPlot.ActualWidth;
-            double nmPerPixel = plotWidth > 0 ? xAxisSpan / plotWidth : 0.1;
+            double nmPerPixel = SpecPlot.ActualWidth > 0 ? xAxisSpan / SpecPlot.ActualWidth : 0.1;
             return Math.Max(nmPerPixel * pixelCount, minTolerance);
         }
 
@@ -463,19 +419,12 @@ namespace GD_ControlCenter_WPF.Views.Pages
             {
                 _isBoxZooming = true;
                 _boxZoomStart = e.GetPosition(SpecPlot);
+                e.Handled = true; // 拦截事件，屏蔽 ScottPlot 原生平移
 
-                // 【核心修复 1】：在 WPF 中，直接将 Preview 事件标记为已处理，
-                // 底层的 ScottPlot 就收不到左键按下的信号了，从而完美屏蔽原生的拖拽平移。
-                e.Handled = true;
-
-                // 初始化半透明红色选框的位置并显示
                 Canvas.SetLeft(ZoomRectangle, _boxZoomStart.X);
                 Canvas.SetTop(ZoomRectangle, _boxZoomStart.Y);
-                ZoomRectangle.Width = 0;
-                ZoomRectangle.Height = 0;
+                ZoomRectangle.Width = ZoomRectangle.Height = 0;
                 ZoomRectangle.Visibility = Visibility.Visible;
-
-                // 强制捕获光标
                 SpecPlot.CaptureMouse();
             }
         }
@@ -484,17 +433,12 @@ namespace GD_ControlCenter_WPF.Views.Pages
         {
             if (_isBoxZooming)
             {
-                // 实时更新红色选框的长宽和起始点
                 Point current = e.GetPosition(SpecPlot);
                 double x = Math.Min(_boxZoomStart.X, current.X);
                 double y = Math.Min(_boxZoomStart.Y, current.Y);
-                double width = Math.Abs(_boxZoomStart.X - current.X);
-                double height = Math.Abs(_boxZoomStart.Y - current.Y);
-
-                Canvas.SetLeft(ZoomRectangle, x);
-                Canvas.SetTop(ZoomRectangle, y);
-                ZoomRectangle.Width = width;
-                ZoomRectangle.Height = height;
+                ZoomRectangle.Width = Math.Abs(_boxZoomStart.X - current.X);
+                ZoomRectangle.Height = Math.Abs(_boxZoomStart.Y - current.Y);
+                Canvas.SetLeft(ZoomRectangle, x); Canvas.SetTop(ZoomRectangle, y);
             }
         }
 
@@ -505,45 +449,21 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 _isBoxZooming = false;
                 SpecPlot.ReleaseMouseCapture();
                 ZoomRectangle.Visibility = Visibility.Collapsed;
-
-                // 屏蔽原生的鼠标松开事件
                 e.Handled = true;
 
                 Point end = e.GetPosition(SpecPlot);
-
-                // 防呆处理：过滤掉手指只是轻触的情况
-                if (Math.Abs(end.X - _boxZoomStart.X) > 15 && Math.Abs(end.Y - _boxZoomStart.Y) > 15)
+                if (Math.Abs(end.X - _boxZoomStart.X) > 15) // 过滤微小抖动
                 {
-                    double dpiScaleX = 1.0, dpiScaleY = 1.0;
+                    double dpiX = 1.0, dpiY = 1.0;
                     PresentationSource source = PresentationSource.FromVisual(SpecPlot);
-                    if (source != null && source.CompositionTarget != null)
-                    {
-                        dpiScaleX = source.CompositionTarget.TransformToDevice.M11;
-                        dpiScaleY = source.CompositionTarget.TransformToDevice.M22;
-                    }
+                    if (source?.CompositionTarget != null) { dpiX = source.CompositionTarget.TransformToDevice.M11; dpiY = source.CompositionTarget.TransformToDevice.M22; }
 
-                    float physicalX1 = (float)(_boxZoomStart.X * dpiScaleX);
-                    float physicalY1 = (float)(_boxZoomStart.Y * dpiScaleY);
-                    float physicalX2 = (float)(end.X * dpiScaleX);
-                    float physicalY2 = (float)(end.Y * dpiScaleY);
+                    var coord1 = SpecPlot.Plot.GetCoordinates((float)(_boxZoomStart.X * dpiX), (float)(_boxZoomStart.Y * dpiY));
+                    var coord2 = SpecPlot.Plot.GetCoordinates((float)(end.X * dpiX), (float)(end.Y * dpiY));
 
-                    // 使用 ScottPlot 5 的 API 获取真实坐标
-                    var coord1 = SpecPlot.Plot.GetCoordinates(physicalX1, physicalY1);
-                    var coord2 = SpecPlot.Plot.GetCoordinates(physicalX2, physicalY2);
-
-                    double xMin = Math.Min(coord1.X, coord2.X);
-                    double xMax = Math.Max(coord1.X, coord2.X);
-                    double yMin = Math.Min(coord1.Y, coord2.Y);
-                    double yMax = Math.Max(coord1.Y, coord2.Y);
-
-                    _isContinuousAutoScale = false; // 【新增】：用户完成了框选放大，打断自动追踪
-
-                    // 应用缩放
-                    SpecPlot.Plot.Axes.SetLimits(xMin, xMax, yMin, yMax);
+                    _isContinuousAutoScale = false;
+                    SpecPlot.Plot.Axes.SetLimits(Math.Min(coord1.X, coord2.X), Math.Max(coord1.X, coord2.X), Math.Min(coord1.Y, coord2.Y), Math.Max(coord1.Y, coord2.Y));
                     SpecPlot.Refresh();
-
-                    // 如果你需要坐标记忆功能（切换页面不丢失），取消注释这行：
-                    // SaveLimitsToViewModel();
                 }
             }
         }

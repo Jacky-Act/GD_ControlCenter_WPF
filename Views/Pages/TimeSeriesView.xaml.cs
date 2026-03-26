@@ -6,52 +6,58 @@ using System.Windows.Threading;
 
 /*
  * 文件名: TimeSeriesView.xaml.cs
- * 模块: 视图层 (UI Code-Behind)
- * 描述: 多通道时序滚动图表的渲染引擎。
- * 由于底层光谱仪可能高达 100Hz (每秒100次) 狂刷数据，如果我们每收到一个点就强制重绘画布，
- * WPF 的 UI 线程会瞬间被海量的渲染指令淹没，导致软件假死卡顿。
- * 解决方案：ViewModel 只负责安静、迅速地把数据塞进内存 List 中。
- * 本 View 层开启一个独立的 DispatcherTimer（每 50ms 扫一次屏幕），
- * 时间一到，瞬间把 ViewModel 内存里的静态数组切片拿出来画在屏幕上。
+ * 描述: 多通道时序滚动图表的渲染引擎类。
+ * 本类通过 DispatcherTimer 实现了“渲染节流”机制，将底层 100Hz 的高频数据推流降频至 20FPS（50ms/帧）进行 UI 绘制。
+ * 核心策略：ViewModel 负责高频异步写入内存，View 层负责定时抓取静态数据切片进行离线绘图，杜绝高频重绘引发的 UI 线程假死。
+ * 维护指南: 
+ * 1. 绘图引擎依赖于 ScottPlot.WPF，升级库版本时需注意 Axis 接口的兼容性。
+ * 2. 页面卸载（Unloaded）时必须停止定时器以释放 CPU 资源。
  */
 
 namespace GD_ControlCenter_WPF.Views.Pages
 {
+    /// <summary>
+    /// TimeSeriesView.xaml 的交互逻辑：实现高性能多通道动态波形渲染。
+    /// </summary>
     public partial class TimeSeriesView : UserControl
     {
         #region 1. 状态与定时器
 
         /// <summary>
-        /// 当前屏幕上所有存活的图表控件集合 (由前台 XAML 的 ItemsControl 动态生成)。
+        /// 存储当前视图中所有活跃的 WpfPlot 控件引用。
+        /// 用于在定时器触发时进行批量渲染轮询。
         /// </summary>
         private readonly List<WpfPlot> _activePlots = new();
 
         /// <summary>
-        /// UI 渲染节流定时器。
-        /// 它的生命周期与当前页面绑定：页面打开时滴答，切走时休眠。
+        /// 渲染节流定时器：控制全屏图表的统一刷新频率。
         /// </summary>
         private readonly DispatcherTimer _renderTimer = new();
 
         #endregion
 
-        #region 2. 初始化与生命周期
+        #region 2. 初始化与生命周期管理
 
+        /// <summary>
+        /// 初始化时序图视图组件，配置渲染步长与生命周期钩子。
+        /// </summary>
         public TimeSeriesView()
         {
             InitializeComponent();
 
-            // 设定 50ms 扫屏一次（约等于 20FPS，人眼看着已经非常流畅了）
+            // 设定 50ms 刷新步长（对应 20FPS），兼顾流畅度与 CPU 开销
             _renderTimer.Interval = TimeSpan.FromMilliseconds(50);
 
+            // 注册全局渲染回调
             _renderTimer.Tick += (s, e) =>
             {
-                // 遍历屏幕上的每一个通道图表
+                // 遍历每一个动态生成的通道图表
                 foreach (var plotControl in _activePlots)
                 {
-                    // 抓取该图表绑定的独立 ViewModel 数据源
+                    // 获取各通道独立的 ViewModel 数据上下文
                     if (plotControl.DataContext is TimeSeriesViewModel.TimeSeriesChartItem item)
                     {
-                        // 脏检查：只有这 50ms 内真的来了新数据，才执行高耗能的重绘动作
+                        // 仅在当前帧周期内有新数据点到达时才重绘画布
                         if (item.HasNewData)
                         {
                             item.HasNewData = false;
@@ -61,32 +67,35 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 }
             };
 
-            // 页面加载时启动引擎，卸载时关闭以节省 CPU
+            // 生命周期绑定：确保后台页面不消耗渲染性能
             this.Loaded += (s, e) => _renderTimer.Start();
             this.Unloaded += (s, e) => _renderTimer.Stop();
         }
 
         #endregion
 
-        #region 3. 动态控件挂载
+        #region 3. 动态控件挂载事件
 
         /// <summary>
-        /// 当 ItemsControl 动态生成了一个新的波形图控件时触发。
+        /// 当 ItemsControl 实例化新的 WpfPlot 控件并加载至视觉树时触发。
         /// </summary>
         private void OnPlotLoaded(object sender, RoutedEventArgs e)
         {
             if (sender is not WpfPlot plotControl) return;
             if (plotControl.DataContext is not TimeSeriesViewModel.TimeSeriesChartItem item) return;
 
-            // 登记造册，加入定时器的巡更队列
-            if (!_activePlots.Contains(plotControl)) _activePlots.Add(plotControl);
+            // 将新生成的控件加入实时监控队列
+            if (!_activePlots.Contains(plotControl))
+            {
+                _activePlots.Add(plotControl);
+            }
 
-            // 无论从哪里切页面回来，直接根据内存里积攒的历史数据，强制画一幅全新的图
+            // 初始绘制：确保切换回页面时能立即看到历史轨迹
             RenderStaticChart(plotControl, item);
         }
 
         /// <summary>
-        /// 当图表控件被销毁时触发（比如用户在设置里少选了几个追踪点）。
+        /// 当通道被移除或图表控件从视觉树中卸载时触发。
         /// </summary>
         private void OnPlotUnloaded(object sender, RoutedEventArgs e)
         {
@@ -98,27 +107,30 @@ namespace GD_ControlCenter_WPF.Views.Pages
 
         #endregion
 
-        #region 4. 图表核心渲染引擎 (Render Engine)
+        #region 4. 核心渲染引擎逻辑
 
         /// <summary>
-        /// 核心渲染逻辑：将内存中的离散点绘制为平滑滚动的折线图。
+        /// 执行单幅图表的物理渲染。
+        /// 包含内存切片提取、散点图构建及坐标轴自适应计算。
         /// </summary>
+        /// <param name="plotControl">ScottPlot 控件实例。</param>
+        /// <param name="item">关联的通道数据模型。</param>
         private void RenderStaticChart(WpfPlot plotControl, TimeSeriesViewModel.TimeSeriesChartItem item)
         {
-            // 1. 清空旧数据
+            // 1. 重置画布
             plotControl.Plot.Clear();
 
             double[] xs;
             double[] ys;
 
-            // --- 2. 【核心隔离】：线程安全的静态切片 ---
-            // 锁定 ViewModel 的资源池，用最快速度拷贝一份静态数组出来。
-            // 这样我们在慢慢画图的时候，绝对不会阻塞后台硬件继续往 List 里塞数据。
+            // --- 2. 线程同步与数据切片 ---
+            // 锁定 ViewModel 的原始数据源，快速拷贝出一份静态副本用于 UI 线程绘图。
+            // 这样绘图过程不会阻塞后台硬件继续往集合中 Push 数据。
             lock (item.SyncRoot)
             {
                 if (item.TimePoints.Count == 0)
                 {
-                    // 若无数据，给个默认视野避免报错
+                    // 若无数据，设定默认可见域并刷新空画布
                     plotControl.Plot.Axes.SetLimits(0, 5, 0, 100);
                     plotControl.Refresh();
                     return;
@@ -128,55 +140,51 @@ namespace GD_ControlCenter_WPF.Views.Pages
                 ys = item.IntensityPoints.ToArray();
             }
 
-            // --- 3. 物理绘图 ---
+            // --- 3. 添加散点图形（Scatter） ---
             var scatter = plotControl.Plot.Add.Scatter(xs, ys);
 
-            // 隐藏点只留线，视觉更清爽
+            // 视觉优化：隐藏离散点，仅显示连续线条
             scatter.MarkerSize = 0;
             scatter.Color = item.LineColor;
             scatter.LineWidth = 1.5f;
             scatter.LegendText = item.Title;
 
-            // --- 4. 配色与图例样式 ---
+            // --- 4. 全局样式配置 ---
             plotControl.Plot.Axes.Left.TickLabelStyle.ForeColor = ScottPlot.Colors.Black;
             plotControl.Plot.Axes.Left.FrameLineStyle.Color = ScottPlot.Colors.Black;
             plotControl.Plot.Axes.Bottom.TickLabelStyle.ForeColor = ScottPlot.Colors.Black;
             plotControl.Plot.Axes.Bottom.FrameLineStyle.Color = ScottPlot.Colors.Black;
             plotControl.Plot.Grid.MajorLineColor = ScottPlot.Colors.Black.WithAlpha(0.1);
-
             plotControl.Plot.ShowLegend();
             plotControl.Plot.Legend.Alignment = ScottPlot.Alignment.UpperLeft;
             plotControl.Plot.Legend.FontColor = ScottPlot.Colors.Black;
             plotControl.Plot.Legend.BackgroundColor = ScottPlot.Colors.White;
 
-            // --- 5. 强力接管坐标轴 (无限滚动心电图效果) ---
+            // --- 5. 坐标轴动态接管 ---
 
-            // X 轴边界计算
-            double minX = xs[0];  // 视窗左边界始终贴住内存中最老的一个点
-            double maxX = xs[^1]; // 视窗右边界是当前最新时间
+            // X 轴逻辑：实现“波形左移”的滚动效果
+            double minX = xs[0];  // 最小时间戳（窗口左侧）
+            double maxX = xs[^1]; // 最大时间戳（窗口右侧）
 
-            // 计算当前视窗的时间跨度（秒），即使刚启动也至少给足 5 秒的预留宽度
-            double xSpan = maxX - minX;
-            if (xSpan < 5.0) xSpan = 5.0;
+            // 确保窗口跨度至少为 5 秒
+            double xSpan = Math.Max(5.0, maxX - minX);
 
-            // 右边界额外留出 5% 的空白“呼吸空间”，看着更舒服
+            // 右侧预留 5% 的“呼吸空间”，防止波形贴死屏幕边缘
             double rightEdge = maxX + xSpan * 0.05;
-
-            // 强行锁死 X 轴，实现曲线往左平滑滚动
             plotControl.Plot.Axes.SetLimitsX(minX, rightEdge);
 
-            // Y 轴自适应边界计算
+            // Y 轴逻辑：自适应幅值缩放
             double minY = ys.Min();
             double maxY = ys.Max();
             double ySpan = maxY - minY;
 
-            // 防止一条直线时 Y 轴缩放成天文数字
+            // 死区保护：若强度为直线（Span 为 0），给予 10 Counts 的固定量程
             if (ySpan < 0.0001) ySpan = 10.0;
 
-            // 上下各留 10% 的安全边距
+            // 上下各留 10% 安全边距
             plotControl.Plot.Axes.SetLimitsY(minY - ySpan * 0.1, maxY + ySpan * 0.1);
 
-            // 推送画面
+            // 推送绘图缓冲区至屏幕
             plotControl.Refresh();
         }
 

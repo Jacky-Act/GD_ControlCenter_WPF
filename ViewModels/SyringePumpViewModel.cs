@@ -4,94 +4,60 @@ using GD_ControlCenter_WPF.ViewModels.Dialogs;
 using GD_ControlCenter_WPF.Views.Dialogs;
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Media;
+
+/*
+ * 文件名: SyringePumpViewModel.cs
+ * 描述: 注射泵设备卡片视图模型。
+ * 核心逻辑：
+ * 1. 自动化流水线：当用户点击卡片开关时，执行一段包含延时的“抽液-推液”完整循环。
+ * 2. 状态锁定：在序列执行期间通过 IsBusy 属性禁用所有交互操作。
+ */
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
     public partial class SyringePumpViewModel : DeviceBaseViewModel
     {
+        #region 1. 依赖服务
+
         private readonly GeneralDeviceService _generalService;
         private readonly JsonConfigService _configService;
 
-        [ObservableProperty]
-        private string _settingDistance = "0";
+        #endregion
 
-        [ObservableProperty]
-        private string _directionText = "输出";
+        #region 2. 绑定属性
+
+        /// <summary>
+        /// 界面展示的当前设定距离快照。
+        /// </summary>
+        [ObservableProperty] private string _settingDistance = "0";
+
+        /// <summary>
+        /// 界面展示的初始方向描述（输入/输出）。
+        /// </summary>
+        [ObservableProperty] private string _directionText = "输入";
+
+        #endregion
 
         public SyringePumpViewModel(GeneralDeviceService generalService, JsonConfigService configService)
         {
             _generalService = generalService;
             _configService = configService;
-
             DisplayName = "注射泵";
-
-            // 初始化同步一次状态
             UpdateUIFromConfig();
         }
 
         /// <summary>
-        /// 从配置文件同步 UI 显示
+        /// 同步本地配置至 UI 文本快照。
         /// </summary>
         private void UpdateUIFromConfig()
         {
             var config = _configService.Load();
-            SettingDistance = $"{config.LastSyringeDistance}"; // 纯数字显示
+            SettingDistance = $"{config.LastSyringeDistance}";
             DirectionText = config.IsSyringeOutput ? "输出" : "输入";
         }
 
         /// <summary>
-        /// 点击卡片左侧触发：弹出设置窗口
-        /// </summary>
-        protected override void ExecuteOpenDetail()
-        {
-            if (IsBusy) return; // 运行期间禁止打开设置窗口
-
-            var currentConfig = _configService.Load();
-            var window = new SyringePumpSettingWindow();
-
-            var vm = new SyringePumpSettingViewModel(_configService, currentConfig, () =>
-            {
-                window.Close();
-                UpdateUIFromConfig();
-            });
-
-            window.DataContext = vm;
-            window.Owner = Application.Current.MainWindow;
-            window.ShowDialog();
-        }
-
-        /// <summary>
-        /// 当点击右侧“启动”按钮时触发（预留逻辑）
-        /// </summary>
-        //protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
-        //{
-        //    base.OnPropertyChanged(e);
-
-        //    // 1. 检查是否是运行状态改变，且当前状态为“启动(True)”
-        //    if (e.PropertyName == nameof(IsRunning) && IsRunning)
-        //    {
-        //        // 2. 读取最新配置
-        //        var config = _configService.Load();
-        //        int durationMs = config.LastSyringeDistance;
-
-        //        // 3. 调用硬件服务下发指令
-        //        // 这里的距离值 0-3000 被逻辑视为 0-3000 毫秒
-        //        _generalService.ControlSyringePump(config.IsSyringeOutput, (short)durationMs);
-
-        //        // 4. 异步等待对应的时间，此时界面按钮保持“停止”文字和选中颜色
-        //        if (durationMs > 0)
-        //        {
-        //            await Task.Delay(durationMs);
-        //        }
-
-        //        // 5. 时间到达后，复位按钮状态为 False (界面变回“启动”)
-        //        IsRunning = false;
-        //    }
-        //}
-
-        /// <summary>
-        /// 自动化序列：一键完成 抽水 -> 延时 -> 推水 -> 延时 -> 恢复待机
+        /// 监听卡片启动信号，触发进样自动化序列。
         /// </summary>
         protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
         {
@@ -99,35 +65,46 @@ namespace GD_ControlCenter_WPF.ViewModels
 
             if (e.PropertyName == nameof(IsRunning) && IsRunning)
             {
-                IsBusy = true; // 锁定按钮，使其置灰不可点击
+                // 1. 锁定控制权限
+                IsBusy = true;
 
                 var config = _configService.Load();
                 short targetDistance = (short)config.LastSyringeDistance;
                 bool initialPort = config.IsSyringeOutput;
 
-                // 计算延时：(行程 / 3000) * 4500ms + 1000ms 固定缓冲
+                // 2. 动态计算动作所需时间
+                // 公式：(量程比) * 4.5秒全行程时间 + 1秒物理惯性缓冲
                 int delayMs = (int)((targetDistance / 3000.0) * 4500) + 1000;
 
                 try
                 {
-                    // 阶段 1：抽水
+                    // 步骤 A：启动抽液动作
                     ButtonText = "抽";
                     _generalService.ControlSyringePump(initialPort, targetDistance);
                     await Task.Delay(delayMs);
 
-                    // 阶段 2：推水（距离归0，自动切换到对立口）
+                    // 步骤 B：启动推液动作（返回原点，物理阀门自动换向）
                     ButtonText = "推";
                     _generalService.ControlSyringePump(!initialPort, 0);
                     await Task.Delay(delayMs);
                 }
                 finally
                 {
-                    // 阶段 3：恢复状态
+                    // 步骤 C：恢复初始状态
                     ButtonText = "启动";
                     IsRunning = false;
-                    IsBusy = false; // 解除锁定，按钮恢复可用
+                    IsBusy = false;
                 }
             }
+        }
+
+        protected override void ExecuteOpenDetail()
+        {
+            if (IsBusy) return;
+            var window = new SyringePumpSettingWindow();
+            window.DataContext = new SyringePumpSettingViewModel(_configService, _configService.Load(), () => { window.Close(); UpdateUIFromConfig(); });
+            window.Owner = Application.Current.MainWindow;
+            window.ShowDialog();
         }
     }
 }

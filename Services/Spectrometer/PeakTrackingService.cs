@@ -2,27 +2,27 @@
 using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services.Spectrometer.Logic;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 
 /*
  * 文件名: PeakTrackingService.cs
- * 模块: 业务服务层 (Business Services)
- * 描述: 后台特征峰追踪服务 (全局单例)。
- * 架构角色: 这是一个“无头 (Headless)”的服务。它挂载在消息总线上，只要底层产出了新的光谱数据，
- * 它就会在后台默默计算并更新所有被追踪峰的实时偏移量，供时序图或数据列表直接读取。
+ * 描述: 后台特征峰自动追踪服务类。负责监听全局光谱数据消息，并实时计算所有标记特征峰在当前帧中的物理偏移量。
+ * 本服务作为“无头”业务组件运行，通过驱动底层寻峰算法更新 TrackedPeak 模型；寻峰点数据结构从这里拿。
+ * 维护指南: 追踪逻辑依赖于 SpectralDataMessage 的高频触发。
  */
 
 namespace GD_ControlCenter_WPF.Services.Spectrometer
 {
+    /// <summary>
+    /// 特征峰追踪服务：实现光谱特征点的动态捕捉、管理及实时坐标更新。
+    /// </summary>
     public class PeakTrackingService
     {
         #region 1. 状态与数据集合
 
         /// <summary>
-        /// 当前系统中所有被用户标记需要追踪的特征峰集合。
-        /// 使用 ObservableCollection 是为了方便前端 UI (如侧边栏列表) 直接进行数据绑定。
+        /// 当前活跃的特征峰追踪集合。
+        /// 采用 ObservableCollection 以支持 UI 列表或图表标注线的双向数据绑定。
         /// </summary>
         public ObservableCollection<TrackedPeak> TrackedPeaks { get; } = new ObservableCollection<TrackedPeak>();
 
@@ -31,12 +31,11 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         #region 2. 初始化与消息订阅
 
         /// <summary>
-        /// 构造函数。
-        /// 在系统启动注入为单例时，自动注册对全局光谱数据的监听。
+        /// 初始化追踪服务并注册全局消息监听。
         /// </summary>
         public PeakTrackingService()
         {
-            // 只要一有新的光谱数据到来，就立刻更新所有的峰位坐标
+            // 订阅全局光谱数据消息：每当硬件产出新帧，立即驱动所有追踪点执行位移计算
             WeakReferenceMessenger.Default.Register<SpectralDataMessage>(this, (r, m) =>
             {
                 UpdatePeaksWithNewData(m.Value);
@@ -48,37 +47,36 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         #region 3. 追踪点管理 (CRUD)
 
         /// <summary>
-        /// 添加一个新的追踪峰。
-        /// 通常由主界面的“图表右键菜单”或“快捷键”触发。
+        /// 向追踪列表中添加一个新的特征峰。
         /// </summary>
-        /// <param name="targetWavelength">鼠标点击处的理论波长</param>
+        /// <param name="targetWavelength">用户在 UI 上选定的基准中心波长（单位：nm）。</param>
         public void AddPeak(double targetWavelength)
         {
-            // 防呆校验：如果该位置 0.5nm 内已经存在一个追踪峰，则视为重复点击，直接忽略
+            // 防重复校验：若 0.5nm 范围内已存在追踪点，则视为无效操作，防止 UI 元素重叠
             if (TrackedPeaks.Any(p => Math.Abs(p.BaseWavelength - targetWavelength) < 0.5))
             {
                 return;
             }
 
+            // 实例化并加入集合，触发 UI 刷新
             TrackedPeaks.Add(new TrackedPeak(targetWavelength));
         }
 
         /// <summary>
-        /// 移除距离鼠标点击位置最近的一个峰。
+        /// 移除指定坐标附近的追踪峰。
         /// </summary>
-        /// <param name="clickWavelength">鼠标点击处的理论波长</param>
-        /// <param name="clickTolerance">判定点击生效的物理像素宽容度（默认±5nm）</param>
+        /// <param name="clickWavelength">点击处的波长位置。</param>
+        /// <param name="clickTolerance">判定点击生效的搜索半径（默认 ±5.0nm）。</param>
         public void RemovePeakNear(double clickWavelength, double clickTolerance = 5.0)
         {
             if (TrackedPeaks.Count == 0) return;
 
-            // 1. 遍历计算所有峰距离鼠标点击位置的绝对偏差
+            // 寻找在宽容度范围内距离点击点最近的特征峰
             var closestPeak = TrackedPeaks
                 .Select(p => new { Peak = p, Distance = Math.Abs(p.CurrentWavelength - clickWavelength) })
                 .OrderBy(x => x.Distance)
                 .FirstOrDefault();
 
-            // 2. 如果最近的那个峰也在“宽容度”范围内，则将其抹杀
             if (closestPeak != null && closestPeak.Distance <= clickTolerance)
             {
                 TrackedPeaks.Remove(closestPeak.Peak);
@@ -86,8 +84,7 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         }
 
         /// <summary>
-        /// 一键清除所有追踪峰。
-        /// 通常在时序图关闭，或切换项目时调用。
+        /// 清空所有已标记的追踪点。
         /// </summary>
         public void ClearAll()
         {
@@ -99,26 +96,23 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         #region 4. 核心刷新引擎
 
         /// <summary>
-        /// 核心刷新逻辑：驱动底层数学算法，更新所有追踪峰的“真实偏移量”。
+        /// 核心计算逻辑：利用最新光谱帧驱动数学算法，锁定所有追踪峰的实时物理位置。
         /// </summary>
-        /// <param name="currentData">由底层刚采上来的最新一帧光谱数据</param>
+        /// <param name="currentData">刚采集到的原始光谱数据包。</param>
         public void UpdatePeaksWithNewData(SpectralData currentData)
         {
-            // 校验数据有效性
             if (currentData == null || currentData.Wavelengths == null || TrackedPeaks.Count == 0)
                 return;
 
             foreach (var peak in TrackedPeaks)
             {
-                // 步骤 1：在初始基准波长 (BaseWavelength) 附近的容差窗口内，找到真实的光强最高点波长
+                // 调用算法层执行局部寻峰：在基准值附近寻找真实最高点 (X)
                 double realX = SpectrometerLogic.GetActualPeakWavelength(currentData, peak.BaseWavelength, peak.ToleranceWindow);
 
-                // 步骤 2：获取该真实波长对应光强计数
+                // 映射光强值：获取该物理位置对应的实时光强计数 (Y)
                 double realY = SpectrometerLogic.GetIntensityAtWavelength(currentData, realX);
 
-                // 步骤 3：更新模型坐标
-                // 注意：TrackedPeak 继承自 ObservableObject，此处赋值会瞬间触发 PropertyChanged，
-                // 任何绑定了这两个属性的 UI 控件 (如主界面的竖线、时序图的缓存拦截器) 都会随之同步。
+                // 更新模型属性：TrackedPeak 内部会发出 PropertyChanged 通知，从而实时更新 UI 线条位置
                 peak.CurrentWavelength = realX;
                 peak.CurrentIntensity = realY;
             }
