@@ -23,6 +23,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         public FlowInjectionViewModel FlowInjectionVM { get; } = new();
         // ==============================================================
 
+        // ================== 新增：样品序列的 VM 属性 ==================
+        public SampleSequenceViewModel SampleSequenceVM { get; } = new();
+
         private readonly HighVoltageService _hvService;
         private readonly JsonConfigService _configService;
         private readonly ProtocolService _protocolService;

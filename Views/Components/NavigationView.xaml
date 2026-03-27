@@ -66,6 +66,15 @@
                     </TabItem.Header>
                 </TabItem>
 
+                <TabItem x:Name="SampleSequenceTab">
+                    <TabItem.Header>
+                        <StackPanel Width="52" Margin="0,8">
+                            <materialDesign:PackIcon Kind="FormatListNumbered" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="样品序列" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                </TabItem>
+
                 <TabItem x:Name="SampleMeasurementTab">
                     <TabItem.Header>
                         <StackPanel Width="52" Margin="0,8">

@@ -29,26 +29,13 @@ namespace GD_ControlCenter_WPF.Views.Components
             {
                 switch (MainTabControl.SelectedIndex)
                 {
-                    case 0:
-                        vm.CurrentPage = vm.ControlPanelVM;
-                        break;
-                    case 1:
-                        vm.CurrentPage = vm.TimeSeriesVM;
-                        break;
-                    case 2:
-                        vm.CurrentPage = vm.ElementConfigVM;
-                        break;
-                    case 3:
-                        vm.CurrentPage = vm.FittingCurveVM;
-                        break;
-                    case 4:
-                        vm.CurrentPage = vm.SampleMeasurementVM;
-                        break;
-                    // ================= 新增：流动注射菜单关联 =================
-                    case 5:
-                        vm.CurrentPage = vm.FlowInjectionVM; // 切换到流动注射页面
-                        break;
-                        // ==========================================================
+                    case 0: vm.CurrentPage = vm.ControlPanelVM; break;
+                    case 1: vm.CurrentPage = vm.TimeSeriesVM; break;
+                    case 2: vm.CurrentPage = vm.ElementConfigVM; break;
+                    case 3: vm.CurrentPage = vm.FittingCurveVM; break;
+                    case 4: vm.CurrentPage = vm.SampleSequenceVM; break; 
+                    case 5: vm.CurrentPage = vm.SampleMeasurementVM; break; 
+                    case 6: vm.CurrentPage = vm.FlowInjectionVM; break;     
                 }
             }
         }
