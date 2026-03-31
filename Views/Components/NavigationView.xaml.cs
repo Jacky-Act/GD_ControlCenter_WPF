@@ -31,11 +31,15 @@ namespace GD_ControlCenter_WPF.Views.Components
                 {
                     case 0: vm.CurrentPage = vm.ControlPanelVM; break;
                     case 1: vm.CurrentPage = vm.TimeSeriesVM; break;
-                    case 2: vm.CurrentPage = vm.ElementConfigVM; break;
-                    case 3: vm.CurrentPage = vm.FittingCurveVM; break;
-                    case 4: vm.CurrentPage = vm.SampleSequenceVM; break; 
-                    case 5: vm.CurrentPage = vm.SampleMeasurementVM; break; 
-                    case 6: vm.CurrentPage = vm.FlowInjectionVM; break;     
+                    case 2: vm.CurrentPage = vm.ElementConfigVM;
+                        // 每次进入该页面，强制刷新仪表台的参数 ====
+                        vm.ElementConfigVM.RefreshGlobalSettings(); break;
+
+                    case 3: vm.CurrentPage = vm.SampleSequenceVM; break;
+                    case 4: vm.CurrentPage = vm.SampleMeasurementVM; break;
+                    case 5: vm.CurrentPage = vm.FlowInjectionVM; break;
+                    case 6: vm.CurrentPage = vm.FittingCurveVM; break;
+    
                 }
             }
         }

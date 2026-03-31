@@ -44,14 +44,10 @@ namespace GD_ControlCenter_WPF.Models.Messages
         [ObservableProperty] private string _elementName = string.Empty;
         [ObservableProperty] private double _wavelength;
 
-        // 拟合曲线信息（如果没有测曲线，就给个默认提示）[ObservableProperty] private string _equationText = "暂无曲线";
-        [ObservableProperty] private string _rSquaredText = "-";
-
-        // 绑定的专属硬件参数
-        [ObservableProperty] private string _currentConfigText = "60";
-        [ObservableProperty] private string _speedConfigText = "30";
-        [ObservableProperty] private string _sampleCountText = "10";
-        [ObservableProperty] private string _sampleIntervalText = "1";
+        // 绑定的专属硬件参数 (移除曲线方程和R2)
+        [ObservableProperty] private string _currentConfigText = string.Empty; [ObservableProperty] private string _speedConfigText = string.Empty;
+        [ObservableProperty] private string _sampleCountText = string.Empty;
+        [ObservableProperty] private string _sampleIntervalText = string.Empty;
     }
 
     /// <summary>

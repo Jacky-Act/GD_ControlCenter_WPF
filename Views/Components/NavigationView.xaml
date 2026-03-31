@@ -57,15 +57,6 @@
                     </TabItem.Header>
                 </TabItem>
 
-                <TabItem x:Name="FittingCurveTab">
-                    <TabItem.Header>
-                        <StackPanel Width="52" Margin="0,8">
-                            <materialDesign:PackIcon Kind="ChartLine" HorizontalAlignment="Center" Width="24" Height="24"/>
-                            <TextBlock Text="拟合曲线" HorizontalAlignment="Center" FontSize="11"/>
-                        </StackPanel>
-                    </TabItem.Header>
-                </TabItem>
-
                 <TabItem x:Name="SampleSequenceTab">
                     <TabItem.Header>
                         <StackPanel Width="52" Margin="0,8">
@@ -84,50 +75,27 @@
                     </TabItem.Header>
                 </TabItem>
 
-                <!-- ================= 新增：流动注射选项卡 ================= -->
                 <TabItem x:Name="FlowInjectionTab">
                     <TabItem.Header>
                         <StackPanel Width="52" Margin="0,8">
-                            <!-- 使用 Eyedropper (滴管) 或 WaterPump (水泵) 等图标表示注射 -->
                             <materialDesign:PackIcon Kind="Eyedropper" HorizontalAlignment="Center" Width="24" Height="24"/>
                             <TextBlock Text="流动注射" HorizontalAlignment="Center" FontSize="11"/>
                         </StackPanel>
                     </TabItem.Header>
                     <Border />
-                    <!-- 保持与其他项的结构一致 -->
                 </TabItem>
-                <!-- ======================================================== -->
+
+                <TabItem x:Name="FittingCurveTab">
+                    <TabItem.Header>
+                        <StackPanel Width="52" Margin="0,8">
+                            <materialDesign:PackIcon Kind="ChartLine" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="拟合曲线" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                </TabItem>
+
             </TabControl>
         </ScrollViewer>
-
-        <!--<StackPanel Grid.Row="1">
-            <Border BorderBrush="{DynamicResource MaterialDesignDivider}" 
-                    BorderThickness="0,1,0,0" 
-                    Margin="0,0"
-                    Opacity="0.5"/>
-
-            <Button Style="{StaticResource MaterialDesignFlatButton}"
-                    Padding="0" 
-                    Width="60" 
-                    Height="60" ToolTip="帮助"
-                    Click="HelpButton_Click">
-                <StackPanel VerticalAlignment="Center">
-                    <materialDesign:PackIcon Kind="HelpCircleOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
-                    <TextBlock Text="帮助" HorizontalAlignment="Center" FontSize="11" Margin="0,4,0,0"/>
-                </StackPanel>
-            </Button>
-
-            <Button Style="{StaticResource MaterialDesignFlatButton}"
-                    Padding="0" 
-                    Width="60" 
-                    Height="60" ToolTip="设置"
-                    Click="SettingsButton_Click">
-                <StackPanel VerticalAlignment="Center">
-                    <materialDesign:PackIcon Kind="SettingsOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
-                    <TextBlock Text="设置" HorizontalAlignment="Center" FontSize="11" Margin="0,4,0,0"/>
-                </StackPanel>
-            </Button>
-        </StackPanel>-->
 
         <StackPanel Grid.Row="1">
             <Border BorderBrush="{DynamicResource MaterialDesignDivider}" 

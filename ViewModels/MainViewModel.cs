@@ -15,7 +15,7 @@ namespace GD_ControlCenter_WPF.ViewModels
         public TimeSeriesViewModel TimeSeriesVM { get; }
 
         // 其他无依赖的纯 UI VM 依然可以手动 new
-        public ElementConfigViewModel ElementConfigVM { get; } = new();
+        public ElementConfigViewModel ElementConfigVM { get; }
         public FittingCurveViewModel FittingCurveVM { get; } = new();
         public SampleMeasurementViewModel SampleMeasurementVM { get; } = new();
 
@@ -45,6 +45,8 @@ namespace GD_ControlCenter_WPF.ViewModels
             _hvService = hvService;
             _configService = configService;
             _protocolService = protocolService;
+
+            ElementConfigVM = new ElementConfigViewModel(configService);
 
             CurrentPage = ControlPanelVM;
         }
