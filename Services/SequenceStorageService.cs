@@ -15,9 +15,31 @@ namespace GD_ControlCenter_WPF.Services
             if (!Directory.Exists(_folderPath)) Directory.CreateDirectory(_folderPath);
         }
 
+        // --- 新增：物理删除本地所有模板文件 ---
+        public void ClearAllTemplates()
+        {
+            if (Directory.Exists(_folderPath))
+            {
+                // 获取所有以 .seq 结尾的文件
+                var files = Directory.GetFiles(_folderPath, "*.seq");
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"删除模板文件失败: {file}, 错误: {ex.Message}");
+                    }
+                }
+            }
+        }
+
         // 获取所有保存的模板名称
         public List<string> GetSavedTemplates()
         {
+            if (!Directory.Exists(_folderPath)) return new List<string>();
             var files = Directory.GetFiles(_folderPath, "*.seq");
             var names = new List<string>();
             foreach (var f in files) names.Add(Path.GetFileNameWithoutExtension(f));
@@ -40,24 +62,18 @@ namespace GD_ControlCenter_WPF.Services
             string json = File.ReadAllText(path);
             return JsonSerializer.Deserialize<List<SampleItemModel>>(json);
         }
+
+        // 导出 CSV (包含动态浓度列)
         public void ExportToCsv(string filePath, List<SampleItemModel> sequence, List<string> activeElements)
         {
             using var writer = new StreamWriter(filePath, false, System.Text.Encoding.UTF8);
-
-            // 1. 写入表头
             var header = new List<string> { "样品名称", "类型", "重复次数" };
             header.AddRange(activeElements.Select(e => $"{e}浓度"));
             writer.WriteLine(string.Join(",", header));
 
-            // 2. 写入数据行
             foreach (var item in sequence)
             {
-                var row = new List<string> {
-                item.SampleName,
-                item.Type.ToString(),
-                item.Repeats.ToString()
-            };
-                // 根据当前元素名单，按顺序取出浓度值
+                var row = new List<string> { item.SampleName, item.Type.ToString(), item.Repeats.ToString() };
                 foreach (var el in activeElements)
                 {
                     var conc = item.ElementConcentrations.FirstOrDefault(c => c.ElementName == el)?.ConcentrationValue ?? "";
@@ -67,43 +83,30 @@ namespace GD_ControlCenter_WPF.Services
             }
         }
 
-        // --- 新增：导入 CSV ---
+        // 导入 CSV
         public List<SampleItemModel> ImportFromCsv(string filePath, out List<string> detectedElements)
         {
             var list = new List<SampleItemModel>();
             detectedElements = new List<string>();
-
             var lines = File.ReadAllLines(filePath);
             if (lines.Length < 1) return list;
 
-            // 解析表头获取元素名称
             var headers = lines[0].Split(',');
-            for (int i = 3; i < headers.Length; i++)
-            {
-                detectedElements.Add(headers[i].Replace("浓度", ""));
-            }
+            for (int i = 3; i < headers.Length; i++) detectedElements.Add(headers[i].Replace("浓度", ""));
 
-            // 解析数据行
             for (int i = 1; i < lines.Length; i++)
             {
                 var cells = lines[i].Split(',');
                 if (cells.Length < 3) continue;
-
                 var item = new SampleItemModel
                 {
                     SampleName = cells[0],
                     Type = Enum.TryParse(cells[1], out SampleType t) ? t : SampleType.待测液,
                     Repeats = int.TryParse(cells[2], out int r) ? r : 1
                 };
-
-                // 填充浓度数据
                 for (int j = 0; j < detectedElements.Count; j++)
                 {
-                    item.ElementConcentrations.Add(new ElementConcentrationModel
-                    {
-                        ElementName = detectedElements[j],
-                        ConcentrationValue = (cells.Length > j + 3) ? cells[j + 3] : ""
-                    });
+                    item.ElementConcentrations.Add(new ElementConcentrationModel { ElementName = detectedElements[j], ConcentrationValue = (cells.Length > j + 3) ? cells[j + 3] : "" });
                 }
                 list.Add(item);
             }

@@ -56,18 +56,25 @@ namespace GD_ControlCenter_WPF.ViewModels
         public SampleSequenceViewModel(ElementConfigViewModel elementConfigVM)
         {
             _elementConfigVM = elementConfigVM;
+
+            // --- 关键改动：每次启动软件，物理删除本地所有历史模板文件 ---
+            _storageService.ClearAllTemplates();
+
+            // 删除文件后刷新列表，此时下拉框将变为空白
             RefreshTemplates();
 
-            // 1. 初始加载：拉取当前已选的分析元素
+            // 初始化时确保样品列表为空
+            Samples = new ObservableCollection<SampleItemModel>();
+
+            // 拉取当前已选的分析元素
             UpdateActiveElements(_elementConfigVM.SelectedConfigs.ToList());
 
-            // 2. 监听全局元素配置变更：当用户在配置页增删元素时，同步更新这里的表头
+            // 注册消息监听
             WeakReferenceMessenger.Default.Register<ActiveConfigsChangedMessage>(this, (r, m) =>
             {
                 Application.Current.Dispatcher.Invoke(() => UpdateActiveElements(m.Value));
             });
 
-            // 3. 监听类型改变：实现智能重命名 (BLK -> BLK-1 等)
             WeakReferenceMessenger.Default.Register<SampleTypeChangedMessage>(this, (r, m) => RenameSampleSmartly(m.Value));
         }
 
