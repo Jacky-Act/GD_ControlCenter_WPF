@@ -40,13 +40,74 @@ namespace GD_ControlCenter_WPF.Services
             string json = File.ReadAllText(path);
             return JsonSerializer.Deserialize<List<SampleItemModel>>(json);
         }
-
-        // 简易版导出 CSV (可根据实际需求补充扩展)
-        public void ExportToCsv(string filePath, List<SampleItemModel> sequence)
+        public void ExportToCsv(string filePath, List<SampleItemModel> sequence, List<string> activeElements)
         {
             using var writer = new StreamWriter(filePath, false, System.Text.Encoding.UTF8);
-            writer.WriteLine("样品名称,类型,重复次数");
-            foreach (var item in sequence) writer.WriteLine($"{item.SampleName},{item.Type},{item.Repeats}");
+
+            // 1. 写入表头
+            var header = new List<string> { "样品名称", "类型", "重复次数" };
+            header.AddRange(activeElements.Select(e => $"{e}浓度"));
+            writer.WriteLine(string.Join(",", header));
+
+            // 2. 写入数据行
+            foreach (var item in sequence)
+            {
+                var row = new List<string> {
+                item.SampleName,
+                item.Type.ToString(),
+                item.Repeats.ToString()
+            };
+                // 根据当前元素名单，按顺序取出浓度值
+                foreach (var el in activeElements)
+                {
+                    var conc = item.ElementConcentrations.FirstOrDefault(c => c.ElementName == el)?.ConcentrationValue ?? "";
+                    row.Add(conc);
+                }
+                writer.WriteLine(string.Join(",", row));
+            }
+        }
+
+        // --- 新增：导入 CSV ---
+        public List<SampleItemModel> ImportFromCsv(string filePath, out List<string> detectedElements)
+        {
+            var list = new List<SampleItemModel>();
+            detectedElements = new List<string>();
+
+            var lines = File.ReadAllLines(filePath);
+            if (lines.Length < 1) return list;
+
+            // 解析表头获取元素名称
+            var headers = lines[0].Split(',');
+            for (int i = 3; i < headers.Length; i++)
+            {
+                detectedElements.Add(headers[i].Replace("浓度", ""));
+            }
+
+            // 解析数据行
+            for (int i = 1; i < lines.Length; i++)
+            {
+                var cells = lines[i].Split(',');
+                if (cells.Length < 3) continue;
+
+                var item = new SampleItemModel
+                {
+                    SampleName = cells[0],
+                    Type = Enum.TryParse(cells[1], out SampleType t) ? t : SampleType.待测液,
+                    Repeats = int.TryParse(cells[2], out int r) ? r : 1
+                };
+
+                // 填充浓度数据
+                for (int j = 0; j < detectedElements.Count; j++)
+                {
+                    item.ElementConcentrations.Add(new ElementConcentrationModel
+                    {
+                        ElementName = detectedElements[j],
+                        ConcentrationValue = (cells.Length > j + 3) ? cells[j + 3] : ""
+                    });
+                }
+                list.Add(item);
+            }
+            return list;
         }
     }
 }

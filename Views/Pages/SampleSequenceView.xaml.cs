@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.ViewModels;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,6 +21,23 @@ namespace GD_ControlCenter_WPF.Views.Pages
             });
         }
 
+        // 新增：每次界面加载时执行
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 获取关联的 ViewModel
+            if (this.DataContext is SampleSequenceViewModel vm)
+            {
+                // 从 VM 中获取当前“大管家”里记录的已选元素名单
+                // 注意：由于 ViewModel 里的 _activeElements 是私有的，
+                // 我们需要在 ViewModel 里暴露一个属性，或者直接从关联的 ElementConfigVM 拿
+                var currentElements = vm.ActiveElementNames;
+
+                if (currentElements != null && currentElements.Count > 0)
+                {
+                    RebuildDynamicColumns(currentElements);
+                }
+            }
+        }
         /// <summary>
         /// 核心黑魔法：动态生成元素浓度列
         /// </summary>
