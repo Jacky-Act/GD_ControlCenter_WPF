@@ -2,7 +2,10 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Services;
+using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
@@ -11,117 +14,149 @@ namespace GD_ControlCenter_WPF.ViewModels
 {
     public partial class SampleSequenceViewModel : ObservableObject
     {
-        [ObservableProperty]
-        private ObservableCollection<SampleItemModel> _samples = new();
+        private readonly SequenceStorageService _storageService = new();
+        private readonly ElementConfigViewModel _elementConfigVM; // 引入配置大管家
+        private List<string> _activeElements = new();
 
-        [ObservableProperty]
-        private SampleItemModel? _selectedSample;
+        [ObservableProperty] private ObservableCollection<SampleItemModel> _samples = new();
+        [ObservableProperty] private SampleItemModel? _selectedSample;
 
-        // 供下拉框绑定的枚举列表
+        [ObservableProperty] private ObservableCollection<string> _savedTemplates = new();
+        [ObservableProperty] private string _selectedTemplate = string.Empty;
+        [ObservableProperty] private string _newTemplateName = string.Empty;
+
+        [ObservableProperty] private int _batchStandardCount = 3;
+        [ObservableProperty] private int _batchUnknownCount = 10;
+
         public Array SampleTypes => Enum.GetValues(typeof(SampleType));
-
         public List<int> AvailableRepeats { get; } = Enumerable.Range(1, 99).ToList();
 
-        private SampleItemModel? _clipboardSample; // 内部剪贴板
-
-        public SampleSequenceViewModel()
+        // 构造函数注入 ElementConfigViewModel
+        public SampleSequenceViewModel(ElementConfigViewModel elementConfigVM)
         {
-            // 初始化给几个默认占位行
-            Samples.Add(new SampleItemModel { SampleName = "空白液-1", Type = SampleType.空白 });
-            Samples.Add(new SampleItemModel { SampleName = "标准液-1", Type = SampleType.标液, StandardConcentration = 1.0 });
-            Samples.Add(new SampleItemModel { SampleName = "标准液-2", Type = SampleType.标液, StandardConcentration = 5.0 });
-            Samples.Add(new SampleItemModel { SampleName = "待测液-1", Type = SampleType.待测液 });
-        }
+            _elementConfigVM = elementConfigVM;
+            RefreshTemplates();
 
+            // 1. 页面一创建，立即主动拉取当前已选的元素名单（解决生命周期错过消息的问题）
+            UpdateActiveElements(_elementConfigVM.SelectedConfigs.ToList());
 
-        // ================= 右键菜单与新增命令 =================
+            // 2. 依然保留被动监听，防止后续用户去配置页增删元素
+            WeakReferenceMessenger.Default.Register<ActiveConfigsChangedMessage>(this, (r, m) => UpdateActiveElements(m.Value));
 
-        [RelayCommand]
-        private void AddRow()
-        {
-            Samples.Add(new SampleItemModel { SampleName = GetNextSampleName() });
-        }
-        [RelayCommand]
-        private void InsertRow()
-        {
-            if (SelectedSample != null)
-            {
-                int index = Samples.IndexOf(SelectedSample);
-                Samples.Insert(index, new SampleItemModel { SampleName = GetNextSampleName() });
-            }
+            // 3. 监听类型改变，触发智能重命名
+            WeakReferenceMessenger.Default.Register<SampleTypeChangedMessage>(this, (r, m) => RenameSampleSmartly(m.Value));
         }
 
         /// <summary>
-        /// 智能命名算法：遍历当前列表，找到 "待测液-X" 中最大的 X，然后返回 X+1
-        /// 这样即使中间删除了某几行，新加的行也不会发生名称冲突。
+        /// 核心方法：更新元素名单，为所有样品补齐浓度格子，并通知 UI 重绘列
         /// </summary>
-        private string GetNextSampleName()
+        private void UpdateActiveElements(List<AnalysisConfigItem> configs)
         {
-            int maxIndex = 0;
-            string prefix = "待测液-";
+            _activeElements = configs.Select(x => x.ElementName).Distinct().ToList();
 
+            // 遍历现有所有样品，如果发现少了某个元素的坑位，立刻补上
             foreach (var sample in Samples)
             {
-                if (sample.SampleName != null && sample.SampleName.StartsWith(prefix))
+                foreach (var elName in _activeElements)
                 {
-                    // 截取 "待测液-" 后面的数字部分进行比对
-                    string numberPart = sample.SampleName.Substring(prefix.Length);
-                    if (int.TryParse(numberPart, out int index))
+                    if (!sample.ElementConcentrations.Any(c => c.ElementName == elName))
                     {
-                        if (index > maxIndex)
-                        {
-                            maxIndex = index;
-                        }
+                        sample.ElementConcentrations.Add(new ElementConcentrationModel { ElementName = elName, ConcentrationValue = "" });
                     }
                 }
             }
 
-            // 返回当前最大序号 + 1
-            return $"{prefix}{maxIndex + 1}";
+            // 发送重绘列的消息给 View 的后台代码
+            WeakReferenceMessenger.Default.Send(new RebuildColumnsMessage(_activeElements));
+        }
+
+        private void RefreshTemplates()
+        {
+            SavedTemplates.Clear();
+            foreach (var t in _storageService.GetSavedTemplates()) SavedTemplates.Add(t);
         }
 
         [RelayCommand]
-        private void DeleteRow()
+        private void LoadTemplate()
         {
-            if (SelectedSample != null) Samples.Remove(SelectedSample);
-        }
-
-        [RelayCommand]
-        private void CopyRow()
-        {
-            if (SelectedSample != null) _clipboardSample = SelectedSample.Clone();
-        }
-
-        [RelayCommand]
-        private void PasteRow()
-        {
-            if (_clipboardSample != null)
+            if (string.IsNullOrEmpty(SelectedTemplate)) return;
+            var data = _storageService.LoadTemplate(SelectedTemplate);
+            if (data != null)
             {
-                int index = SelectedSample != null ? Samples.IndexOf(SelectedSample) + 1 : Samples.Count;
-                Samples.Insert(index, _clipboardSample.Clone());
+                Samples.Clear();
+                foreach (var item in data)
+                {
+                    Samples.Add(item);
+                }
+                // 加载完模板后，也要用当前的元素大名单筛一遍，补齐缺少的列
+                UpdateActiveElements(_elementConfigVM.SelectedConfigs.ToList());
             }
         }
 
         [RelayCommand]
-        private void SetAsStandardStart()
+        private void SaveTemplate()
         {
-            if (SelectedSample != null)
+            if (string.IsNullOrWhiteSpace(NewTemplateName)) return;
+            _storageService.SaveTemplate(NewTemplateName, Samples.ToList());
+            RefreshTemplates();
+            SelectedTemplate = NewTemplateName;
+            MessageBox.Show("序列模板保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        [RelayCommand]
+        private void ExportCsv()
+        {
+            var dialog = new SaveFileDialog { Filter = "CSV 文件 (*.csv)|*.csv", FileName = "新建进样序列" };
+            if (dialog.ShowDialog() == true)
             {
-                // 把当前及往后的样本全部快速设为“标液”并自动递增命名
-                int startIndex = Samples.IndexOf(SelectedSample);
-                for (int i = startIndex; i < Samples.Count; i++)
+                _storageService.ExportToCsv(dialog.FileName, Samples.ToList());
+                MessageBox.Show("导出 CSV 成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        [RelayCommand]
+        private void BatchGenerate()
+        {
+            Samples.Clear();
+            Samples.Add(CreateNewSample(SampleType.空白, "BLK-1"));
+            for (int i = 1; i <= BatchStandardCount; i++) Samples.Add(CreateNewSample(SampleType.标液, $"STD-{i}"));
+            for (int i = 1; i <= BatchUnknownCount; i++) Samples.Add(CreateNewSample(SampleType.待测液, $"待测液-{i}"));
+
+            // 通知 UI 把列画出来
+            WeakReferenceMessenger.Default.Send(new RebuildColumnsMessage(_activeElements));
+        }
+
+        private SampleItemModel CreateNewSample(SampleType type, string name)
+        {
+            var sample = new SampleItemModel { Type = type, SampleName = name };
+            foreach (var el in _activeElements)
+            {
+                sample.ElementConcentrations.Add(new ElementConcentrationModel { ElementName = el, ConcentrationValue = "" });
+            }
+            return sample;
+        }
+
+        private void RenameSampleSmartly(SampleItemModel item)
+        {
+            string prefix = item.Type switch { SampleType.空白 => "BLK-", SampleType.标液 => "STD-", _ => "待测液-" };
+            int maxIndex = 0;
+
+            foreach (var s in Samples)
+            {
+                if (s != item && s.SampleName.StartsWith(prefix))
                 {
-                    Samples[i].Type = SampleType.标液;
-                    Samples[i].SampleName = $"STD-{i - startIndex + 1}";
+                    string numPart = s.SampleName.Substring(prefix.Length);
+                    if (int.TryParse(numPart, out int idx) && idx > maxIndex) maxIndex = idx;
                 }
             }
+            item.SampleName = $"{prefix}{maxIndex + 1}";
         }
 
-        // ================= 广播序列 =================
+        [RelayCommand] private void AddRow() => Samples.Add(CreateNewSample(SampleType.待测液, "新样品"));
+        [RelayCommand] private void DeleteRow() { if (SelectedSample != null) Samples.Remove(SelectedSample); }
         [RelayCommand]
         private void ApplySequence()
         {
-            // 将当前列表广播给“流动注射”和“连续测量”页面
             WeakReferenceMessenger.Default.Send(new SampleSequenceChangedMessage(Samples.ToList()));
             MessageBox.Show("进样序列已成功下发至测量模块！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }

@@ -45,7 +45,6 @@ namespace GD_ControlCenter_WPF.Models.Messages
         [ObservableProperty] private double _wavelength;
 
         // 绑定的专属硬件参数 (移除曲线方程和R2)
-        [ObservableProperty] private string _currentConfigText = string.Empty; [ObservableProperty] private string _speedConfigText = string.Empty;
         [ObservableProperty] private string _sampleCountText = string.Empty;
         [ObservableProperty] private string _sampleIntervalText = string.Empty;
     }

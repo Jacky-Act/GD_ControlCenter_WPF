@@ -1,189 +1,161 @@
 ﻿<UserControl x:Class="GD_ControlCenter_WPF.Views.Pages.SampleMeasurementView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
-             mc:Ignorable="d" 
-             d:DesignHeight="768" d:DesignWidth="1024">
+             Background="{DynamicResource MaterialDesignPaper}">
 
-    <Grid Background="{DynamicResource MaterialDesignPaper}">
+    <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <materialDesign:Card Grid.Row="0" Margin="5,5,5,5" UniformCornerRadius="4" Background="{DynamicResource PrimaryHueLightBrush}" Foreground="{DynamicResource PrimaryHueLightForegroundBrush}">
-            <TextBlock Text="{Binding CurrentSequenceStatus, FallbackValue='当前状态：等待测量'}" 
-                       Margin="16,8" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
-        </materialDesign:Card>
+        <!-- 三列核心布局 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.5*"/>
+                <!-- 样品序列与配置 -->
+                <ColumnDefinition Width="5.5*"/>
+                <!-- 双图表区 -->
+                <ColumnDefinition Width="2*"/>
+                <!-- 测量结果计算区 -->
+            </Grid.ColumnDefinitions>
 
-        <Grid Grid.Row="1" Margin="5,0,5,5">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+            <!-- ================= 左侧：样本 (主) 与 元素 (辅) ================= -->
+            <Grid Grid.Column="0" Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="2*"/>
+                    <RowDefinition Height="1*"/>
+                </Grid.RowDefinitions>
 
-            <materialDesign:Card Grid.Row="0" Margin="0,0,0,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                <Grid Margin="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0">
-                        <TextBlock Text="分析配置" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
-                        <Separator Margin="0,4,0,0" Style="{StaticResource MaterialDesignLightSeparator}"/>
-                    </StackPanel>
-
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding ActiveConfigs}" 
-                              AutoGenerateColumns="False" IsReadOnly="True" 
-                              CanUserAddRows="False" CanUserDeleteRows="False"
-                              MaxHeight="200" Margin="0,8,0,0">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="元素" Binding="{Binding ElementName}" Width="*"/>
-                            <DataGridTextColumn Header="波长 (nm)" Binding="{Binding Wavelength}" Width="*"/>
-                            <DataGridTextColumn Header="拟合方程" Binding="{Binding EquationText}" Width="1.5*"/>
-                            <DataGridTextColumn Header="R²" Binding="{Binding RSquaredText}" Width="*"/>
-                            <DataGridTextColumn Header="电流配置 (mA)" Binding="{Binding CurrentConfigText}" Width="*"/>
-                            <DataGridTextColumn Header="转速配置 (rpm)" Binding="{Binding SpeedConfigText}" Width="*"/>
-                            <DataGridTextColumn Header="采样次数" Binding="{Binding SampleCountText}" Width="*"/>
-                            <DataGridTextColumn Header="采样间隔 (s)" Binding="{Binding SampleIntervalText}" Width="*"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
-            </materialDesign:Card>
-
-            <Grid Grid.Row="1" Margin="0,2.5,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="4*" />
-                    <ColumnDefinition Width="2.8*" />
-                    <ColumnDefinition Width="3.2*" />
-                </Grid.ColumnDefinitions>
-
-                <materialDesign:Card Grid.Column="0" Margin="0,0,2.5,0" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                <materialDesign:Card Grid.Row="0" Margin="0,0,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0">
-                            <TextBlock Text="实时光谱图" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
-                            <Separator Margin="0,4,0,8" Style="{StaticResource MaterialDesignLightSeparator}"/>
-                        </StackPanel>
+                        <TextBlock Text=" 样 品 序 列 " Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                        <Separator Margin="0,4,0,4" Style="{StaticResource MaterialDesignLightSeparator}"/>
 
-                        <Border Grid.Row="1" Background="Black" CornerRadius="8">
-                            <ScottPlot:WpfPlot x:Name="RealTimePlot" />
-                        </Border>
-                    </Grid>
-                </materialDesign:Card>
-
-                <materialDesign:Card Grid.Column="1" Margin="2.5,0,2.5,0" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Grid Margin="8">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Grid.Row="0">
-                            <TextBlock Text="待测样品" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
-                            <Separator Margin="0,4,0,0" Style="{StaticResource MaterialDesignLightSeparator}"/>
-                        </StackPanel>
-
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding SampleSequence}" 
-                                  SelectedItem="{Binding SelectedSample, Mode=TwoWay}"
-                                  AutoGenerateColumns="False" IsReadOnly="True" 
-                                  CanUserAddRows="False" CanUserDeleteRows="False"
-                                  Margin="0,8,0,8">
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding SampleSequence}" SelectedItem="{Binding SelectedSample, Mode=TwoWay}"
+                                  AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*"/>
-
-                                <DataGridTemplateColumn Header="平均强度" Width="*">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding AverageIntensity}" VerticalAlignment="Center">
-                                                <TextBlock.ToolTip>
-                                                    <ToolTip Content="{Binding IntensityDetails}" 
-                                                             Visibility="{Binding HasIntensityData, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                                </TextBlock.ToolTip>
-                                            </TextBlock>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="状态" Binding="{Binding Status}" Width="60">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="测量中">
+                                                    <Setter Property="Foreground" Value="Orange"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="完成">
+                                                    <Setter Property="Foreground" Value="Green"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="名称" Binding="{Binding SampleName}" Width="*"/>
+                                <DataGridTextColumn Header="类型" Binding="{Binding Type}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
-
-                        <Grid Grid.Row="2" Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
-                            <TextBox Grid.Column="0" 
-                                     materialDesign:HintAssist.Hint="样品名称" 
-                                     Text="{Binding NewSampleName, UpdateSourceTrigger=PropertyChanged}" 
-                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}" 
-                                     VerticalAlignment="Bottom"/>
-
-                            <Button Grid.Column="1" 
-                                    Style="{StaticResource MaterialDesignFloatingActionMiniButton}" 
-                                    Command="{Binding AddSampleCommand}" 
-                                    ToolTip="添加样品"
-                                    Margin="16,0,0,0" VerticalAlignment="Bottom">
-                                <materialDesign:PackIcon Kind="Plus" Width="24" Height="24"/>
-                            </Button>
-                        </Grid>
                     </Grid>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="2" Margin="2.5,0,0,0" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                <materialDesign:Card Grid.Row="1" Margin="0,5,0,0" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
+                        <TextBlock Text=" 分 析 元 素 " Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                        <Separator Margin="0,4,0,4" Style="{StaticResource MaterialDesignLightSeparator}"/>
 
-                        <StackPanel Grid.Row="0">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="测量结果" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding SelectedSample.Name, StringFormat=' - {0}'}" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8" VerticalAlignment="Center"
-                                           Visibility="{Binding SelectedSample, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            </StackPanel>
-                            <Separator Margin="0,4,0,0" Style="{StaticResource MaterialDesignLightSeparator}"/>
-                        </StackPanel>
-
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedSampleResults}" 
-                                  AutoGenerateColumns="False" IsReadOnly="True" 
-                                  CanUserAddRows="False" CanUserDeleteRows="False"
-                                  Margin="0,8,0,0">
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding ActiveConfigs}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="元素" Binding="{Binding ElementName}" Width="*"/>
-                                <DataGridTextColumn Header="波长 (nm)" Binding="{Binding Wavelength}" Width="*"/>
-                                <DataGridTextColumn Header="浓度" Binding="{Binding Concentration}" Width="*"/>
+                                <DataGridTextColumn Header="波长(nm)" Binding="{Binding Wavelength}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
                 </materialDesign:Card>
             </Grid>
+
+            <!-- ================= 中间：光谱图 (寻峰) 与 时序图 (记录) ================= -->
+            <Grid Grid.Column="1" Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="1*"/>
+                </Grid.RowDefinitions>
+
+                <materialDesign:Card Grid.Row="0" Margin="0,0,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text=" 实 时 光 谱 图 (右键寻峰)" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                        <Border Grid.Row="1" Background="Black" CornerRadius="8" Margin="0,4,0,0">
+                            <!-- 光谱控件 -->
+                            <ScottPlot:WpfPlot x:Name="SpectrumPlot" />
+                        </Border>
+                    </Grid>
+                </materialDesign:Card>
+
+                <materialDesign:Card Grid.Row="1" Margin="0,5,0,0" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text=" 强 度 时 序 图 (寻峰后动态映射)" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Opacity="0.8"/>
+                        <Border Grid.Row="1" Background="Black" CornerRadius="8" Margin="0,4,0,0">
+                            <!-- 时序控件 -->
+                            <ScottPlot:WpfPlot x:Name="TimeSeriesPlot" />
+                        </Border>
+                    </Grid>
+                </materialDesign:Card>
+            </Grid>
+
+            <!-- ================= 右侧：当前样品结算结果 ================= -->
+            <materialDesign:Card Grid.Column="2" Margin="5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2" Background="{DynamicResource PrimaryHueLightBrush}" Foreground="{DynamicResource PrimaryHueLightForegroundBrush}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text=" 测 量 结 算 结 果 " FontWeight="Bold" FontSize="16"/>
+                        <TextBlock Text="{Binding SelectedSample.SampleName, StringFormat='当前样品: {0}'}" Opacity="0.8" Margin="0,5,0,0"/>
+                        <Separator Margin="0,8,0,8" Background="White" Opacity="0.3"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding CurrentSampleResults}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Background="Transparent" RowBackground="Transparent" BorderThickness="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="元素" Binding="{Binding ElementName}" Width="*"/>
+                            <DataGridTextColumn Header="平均强度" Binding="{Binding AverageIntensity}" Width="1.5*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </materialDesign:Card>
         </Grid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,15">
-            <Button Content="移除序列" 
-                    Style="{StaticResource MaterialDesignRaisedButton}" 
-                    Command="{Binding RemoveSampleCommand}" 
-                    Margin="0,0,15,0"/>
+        <!-- ================= 底部：操作控制面板 ================= -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,10">
+            <!-- 状态修改区 -->
+            <Button Content="设为等待" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding MarkAsWaitingCommand}" Margin="0,0,10,0"/>
+            <Button Content="设为完成" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding MarkAsCompletedCommand}" Margin="0,0,50,0"/>
 
-            <Button Content="开始采样" 
-                    Style="{StaticResource MaterialDesignRaisedButton}" 
-                    Command="{Binding StartSamplingCommand}" 
-                    Margin="0,0,15,0"/>
-
-            <Button Content="停止采样" 
-                    Style="{StaticResource MaterialDesignRaisedButton}" 
-                    Command="{Binding StopSamplingCommand}" 
-                    Margin="0,0,15,0"/>
+            <!-- 核心流程区 -->
+            <Button Content="{Binding MeasurementButtonText}" Style="{StaticResource MaterialDesignRaisedButton}" Command="{Binding ToggleMeasurementCommand}" Width="150" Height="45" FontSize="18" Margin="0,0,20,0"/>
+            <Button Content="暂停记录" Style="{StaticResource MaterialDesignRaisedButton}" Command="{Binding TogglePauseCommand}" Background="Orange" BorderBrush="Orange" Width="120" Height="45" FontSize="16"/>
         </StackPanel>
     </Grid>
 </UserControl>

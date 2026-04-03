@@ -27,15 +27,25 @@ namespace GD_ControlCenter_WPF
             services.AddSingleton<BatteryService>();
             services.AddSingleton<HighVoltageService>();
 
+            // ... 前面的代码不变
+
             // 3. 注册 ViewModels (单例或瞬态)
             services.AddSingleton<BatteryViewModel>();
             services.AddSingleton<HighVoltageViewModel>();
             services.AddSingleton<ControlPanelViewModel>();
             services.AddSingleton<SettingsViewModel>();
-            services.AddSingleton<MainViewModel>();
             services.AddSingleton<PeristalticPumpViewModel>();
             services.AddSingleton<SyringePumpViewModel>();
             services.AddSingleton<TimeSeriesViewModel>();
+
+            // ================= 核心修复：把所有 VM 纳入单例接管 =================
+            services.AddSingleton<ElementConfigViewModel>();
+            services.AddSingleton<SampleSequenceViewModel>();
+            services.AddSingleton<SampleMeasurementViewModel>();
+            services.AddSingleton<FlowInjectionViewModel>();
+            services.AddSingleton<AnalysisWorkstationViewModel>();
+            services.AddSingleton<MainViewModel>();
+            // ====================================================================
 
             // 构建容器
             Services = services.BuildServiceProvider();

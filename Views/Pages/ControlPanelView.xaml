@@ -1,51 +1,117 @@
 ﻿<UserControl x:Class="GD_ControlCenter_WPF.Views.Pages.ControlPanelView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:components="clr-namespace:GD_ControlCenter_WPF.Views.Components"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
-             mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             mc:Ignorable="d"
+             d:DesignHeight="768" d:DesignWidth="1024">
+
     <Grid Background="{DynamicResource MaterialDesignPaper}">
         <Grid.RowDefinitions>
             <RowDefinition Height="{Binding DashboardHeight}" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- ================== 上半部分：硬件控制卡片区 ================== -->
         <Grid Grid.Row="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
+            <!-- 第一排：点火 + 模式切换 + 高压电源 + 蠕动泵 -->
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1*" />
-                    <ColumnDefinition Width="5.6*" />
+                    <!-- 1. 点火 -->
+                    <ColumnDefinition Width="1.5*" />
+                    <!-- 2. 测量模式切换 -->
+                    <ColumnDefinition Width="4.1*" />
+                    <!-- 3. 高压电源 -->
                     <ColumnDefinition Width="3.4*" />
+                    <!-- 4. 蠕动泵 -->
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:Card Grid.Column="0" Margin="5,5,0,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Button Style="{StaticResource MaterialDesignFlatButton}"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Height="Auto" Padding="0"
-                            Command="{Binding FireCommand}">
-                        <TextBlock Text="点火" FontSize="24" FontWeight="Bold" Foreground="IndianRed" 
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <!-- 1. 点火按钮 -->
+                <materialDesign:Card Grid.Column="0" Margin="5,5,2.5,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Button Style="{StaticResource MaterialDesignFlatButton}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Height="Auto" Padding="0" Command="{Binding FireCommand}">
+                        <TextBlock Text="点火" FontSize="24" FontWeight="Bold" Foreground="IndianRed" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </materialDesign:Card>
 
-                <components:DeviceControlCard Grid.Column="1" 
-                                              DataContext="{Binding Devices[0]}" 
-                                              Margin="5,5,0,2.5"/>
+                <!-- ================= 核心修改：2. 独立模式切换卡片 (统一样式) ================= -->
+                <materialDesign:Card Grid.Column="1" Margin="2.5,5,0,2.5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- 左上角淡色小标题 -->
+                        <TextBlock Grid.Row="0" Text="测样模式" FontSize="12" Foreground="{DynamicResource PurpleThemeBrush}" Opacity="0.5" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
-                <components:DeviceControlCard Grid.Column="2" 
-                                              DataContext="{Binding Devices[1]}" 
-                                              Margin="5,5,5,2.5"/>
+                        <!-- 居中的拨动开关组 (与转向阀门完全一致的排版) -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+
+                            <!-- 连续测量 (未选中时高亮，选中时变灰) -->
+                            <TextBlock Text="连续" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="14" FontWeight="Bold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource PurpleThemeBrush}"/>
+                                        <Setter Property="Opacity" Value="0.5"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFlowInjectionMode}" Value="False">
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- 核心切换开关：使用 PurpleSwitchStyle，并加入左右箭头图标 -->
+                            <ToggleButton Style="{StaticResource PurpleSwitchStyle}" 
+              IsChecked="{Binding IsFlowInjectionMode, Mode=TwoWay}" 
+              Click="ToggleButton_Click"
+              ToolTip="切换：连续进样 / 流动注射">
+                                <!-- 未选中(向左)时的图标 -->
+                                <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />
+                                <!-- 选中(向右)时的图标 -->
+                                <materialDesign:ToggleButtonAssist.OnContent>
+                                    <materialDesign:PackIcon Kind="ArrowRight" />
+                                </materialDesign:ToggleButtonAssist.OnContent>
+                            </ToggleButton>
+
+                            <!-- 流动注射 (选中时高亮，未选中时变灰) -->
+                            <TextBlock Text="流动" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="14" FontWeight="Bold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource PurpleThemeBrush}"/>
+                                        <Setter Property="Opacity" Value="0.5"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFlowInjectionMode}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}"/>
+                                                <Setter Property="Opacity" Value="1.0"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </materialDesign:Card>
+                <!-- ==================================================================== -->
+                <!-- ==================================================================== -->
+
+                <!-- 3. 高压电源 -->
+                <components:DeviceControlCard Grid.Column="2" DataContext="{Binding Devices[0]}" Margin="5,5,0,2.5"/>
+                <!-- 4. 蠕动泵 -->
+                <components:DeviceControlCard Grid.Column="3" DataContext="{Binding Devices[1]}" Margin="5,5,5,2.5"/>
             </Grid>
 
+            <!-- 第二排：电池 + 采样配置 + 转向阀 + 三维平台 + 注射泵 -->
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1.65*" />
@@ -55,19 +121,13 @@
                     <ColumnDefinition Width="3.4*" />
                 </Grid.ColumnDefinitions>
 
-                <materialDesign:Card Grid.Column="0" Margin="5,5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <components:BatteryIcon DataContext="{Binding BatteryVM}" 
-                                            HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"/>
+                <materialDesign:Card Grid.Column="0" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <components:BatteryIcon DataContext="{Binding BatteryVM}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </materialDesign:Card>
 
                 <materialDesign:Card Grid.Column="1" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Button Style="{StaticResource MaterialDesignFlatButton}"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Height="Auto" Padding="0"
-                            Command="{Binding SamplingConfigCommand}">
-                        <TextBlock Text="采样配置" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}" 
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Style="{StaticResource MaterialDesignFlatButton}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Height="Auto" Padding="0" Command="{Binding SamplingConfigCommand}">
+                        <TextBlock Text="采样配置" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </materialDesign:Card>
 
@@ -77,13 +137,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="{DynamicResource PurpleThemeBrush}" Opacity="0.5"
-                                   HorizontalAlignment="Left" VerticalAlignment="Top"/>
-
+                        <TextBlock Grid.Row="0" Text="转向阀门" FontSize="12" Foreground="{DynamicResource PurpleThemeBrush}" Opacity="0.5" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock x:Name="TxtCH1" Text="1" VerticalAlignment="Center" Margin="0,0,12,0" 
-                                       FontSize="14" FontWeight="Bold">
+                            <TextBlock x:Name="TxtCH1" Text="1" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="14" FontWeight="Bold">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource PurpleThemeBrush}"/>
@@ -98,17 +154,14 @@
                                 </TextBlock.Style>
                             </TextBlock>
 
-                            <ToggleButton Style="{StaticResource PurpleSwitchStyle}"
-                                          IsChecked="{Binding IsSteeringValveActive, Mode=TwoWay}"
-                                          ToolTip="切换转向阀通道">
+                            <ToggleButton Style="{StaticResource PurpleSwitchStyle}" IsChecked="{Binding IsSteeringValveActive, Mode=TwoWay}" ToolTip="切换转向阀通道">
                                 <materialDesign:PackIcon Kind="ArrowLeft" RenderTransformOrigin=".5,.5" />
                                 <materialDesign:ToggleButtonAssist.OnContent>
                                     <materialDesign:PackIcon Kind="ArrowRight" />
                                 </materialDesign:ToggleButtonAssist.OnContent>
                             </ToggleButton>
 
-                            <TextBlock x:Name="TxtCH2" Text="2" VerticalAlignment="Center" Margin="12,0,0,0" 
-                                       FontSize="14" FontWeight="Bold">
+                            <TextBlock x:Name="TxtCH2" Text="2" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="14" FontWeight="Bold">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{StaticResource PurpleThemeBrush}"/>
@@ -126,27 +179,20 @@
                     </Grid>
                 </materialDesign:Card>
 
-                <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8"
-                                     materialDesign:ElevationAssist.Elevation="Dp2">
-                    <Button Command="{Binding Devices[3].OpenDetailCommand}"
-                            Style="{StaticResource MaterialDesignFlatButton}"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Height="Auto" Padding="0">
+                <materialDesign:Card Grid.Column="3" Margin="5,2.5,0,5" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Button Command="{Binding OpenPlatform3DWindowCommand}" Style="{StaticResource MaterialDesignFlatButton}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Height="Auto" Padding="0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" 
-                                       Foreground="Black"/>
-                            <TextBlock Text="三维平台" FontSize="20" FontWeight="Bold" 
-                                       Foreground="Black"/>
+                            <materialDesign:PackIcon Kind="AxisArrow" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="Black"/>
+                            <TextBlock Text="三维平台" FontSize="20" FontWeight="Bold" Foreground="Black"/>
                         </StackPanel>
                     </Button>
                 </materialDesign:Card>
 
-                <components:DeviceControlCard Grid.Column="4" 
-                                  DataContext="{Binding Devices[2]}" 
-                                  Margin="5,2.5,5,5"/>
+                <components:DeviceControlCard Grid.Column="4" DataContext="{Binding Devices[2]}" Margin="5,2.5,5,5"/>
             </Grid>
         </Grid>
 
+        <!-- ================== 下半部分：光谱仪监控与图表区 ================== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -155,6 +201,7 @@
 
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
+                    <!-- 绑定在 ViewModel 里的动态头部高度 -->
                     <RowDefinition Height="{Binding ParamHeaderHeight}" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
@@ -169,60 +216,33 @@
 
                         <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="积分时间:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
-                            <Button Style="{StaticResource MaterialDesignFlatButton}" 
-                                    Content="{Binding SpecVM.IntegrationTimeMs, StringFormat={}{0} ms}"
-                                    Command="{Binding OpenIntegrationTimeConfigCommand}"
-                                    Width="90" Height="28" 
-                                    Padding="5,0,0,0"
-                                    HorizontalContentAlignment="Left" />
+                            <Button Style="{StaticResource MaterialDesignFlatButton}" Content="{Binding SpecVM.IntegrationTimeMs, StringFormat={}{0} ms}" Command="{Binding OpenIntegrationTimeConfigCommand}" Width="90" Height="28" Padding="5,0,0,0" HorizontalContentAlignment="Left" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="平均次数:" VerticalAlignment="Center" Opacity="0.6" Margin="0,0,5,0"/>
-                            <Button Style="{StaticResource MaterialDesignFlatButton}" 
-                                    Content="{Binding SpecVM.AveragingCount}"
-                                    Command="{Binding OpenAveragingCountConfigCommand}"
-                                    Width="90" Height="28" 
-                                    Padding="5,0,0,0"
-                                    HorizontalContentAlignment="Left" />
+                            <Button Style="{StaticResource MaterialDesignFlatButton}" Content="{Binding SpecVM.AveragingCount}" Command="{Binding OpenAveragingCountConfigCommand}" Width="90" Height="28" Padding="5,0,0,0" HorizontalContentAlignment="Left" />
                         </StackPanel>
 
-                        <TextBlock Grid.Column="2" Text="{Binding StatusInfo}" 
-                                   VerticalAlignment="Center" HorizontalAlignment="Center" 
-                                   FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StatusInfo}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource PrimaryHueMidBrush}"/>
                     </Grid>
                 </Border>
 
+                <!-- 巨大的深黑色全谱实时波形监控图 -->
                 <Border Grid.Row="1" Background="Black" Margin="5,0,2.5,5" CornerRadius="8">
                     <ScottPlot:WpfPlot x:Name="SpecPlot" />
                 </Border>
             </Grid>
 
-            <!--<Border Grid.Column="1" Margin="2.5,0,5,5">
-                <UniformGrid Columns="1" Rows="5">
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
-                            Command="{Binding ToggleSpectrometerCommand}" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
-
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding FullScreenButtonText}"
-                            Command="{Binding ToggleFullScreenCommand}" />
-                </UniformGrid>
-            </Border>-->
-
+            <!-- 右侧：光谱仪操作栏 -->
             <Border Grid.Column="1" Margin="2.5,0,5,5">
                 <UniformGrid Columns="1" Rows="6">
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}"
-                            Command="{Binding ToggleSpectrometerCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="{Binding SpecVM.MeasurementButtonText}" Command="{Binding ToggleSpectrometerCommand}" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="文件操作" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="单幅保存" />
                     <Button Style="{StaticResource SideOperationButtonStyle}" Content="脚本保存" />
-
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="自动范围" 
-                            Command="{Binding AutoRangeCommand}" />
-                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="最大范围" 
-                            Command="{Binding MaxRangeCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="自动范围" Command="{Binding AutoRangeCommand}" />
+                    <Button Style="{StaticResource SideOperationButtonStyle}" Content="最大范围" Command="{Binding MaxRangeCommand}" />
                 </UniformGrid>
             </Border>
         </Grid>

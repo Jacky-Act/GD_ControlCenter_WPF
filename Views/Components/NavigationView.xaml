@@ -66,23 +66,14 @@
                     </TabItem.Header>
                 </TabItem>
 
-                <TabItem x:Name="SampleMeasurementTab">
+                <!-- 合并后的全新测样工作站 -->
+                <TabItem x:Name="AnalysisWorkstationTab">
                     <TabItem.Header>
                         <StackPanel Width="52" Margin="0,8">
-                            <materialDesign:PackIcon Kind="FlaskOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
-                            <TextBlock Text="连续测量" HorizontalAlignment="Center" FontSize="11"/>
+                            <materialDesign:PackIcon Kind="TestTube" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="测样分析" HorizontalAlignment="Center" FontSize="11"/>
                         </StackPanel>
                     </TabItem.Header>
-                </TabItem>
-
-                <TabItem x:Name="FlowInjectionTab">
-                    <TabItem.Header>
-                        <StackPanel Width="52" Margin="0,8">
-                            <materialDesign:PackIcon Kind="Eyedropper" HorizontalAlignment="Center" Width="24" Height="24"/>
-                            <TextBlock Text="流动注射" HorizontalAlignment="Center" FontSize="11"/>
-                        </StackPanel>
-                    </TabItem.Header>
-                    <Border />
                 </TabItem>
 
                 <TabItem x:Name="FittingCurveTab">

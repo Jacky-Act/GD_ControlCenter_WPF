@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging.Messages;
+using static GD_ControlCenter_WPF.Models.AppConfig;
 
 /*
  * 文件名: DeviceDataMessages.cs
@@ -34,5 +35,10 @@ namespace GD_ControlCenter_WPF.Models.Messages
     public class ControlResponseMessage : ValueChangedMessage<byte[]>
     {
         public ControlResponseMessage(byte[] value) : base(value) { }
+    }
+
+    public class MeasurementModeChangedMessage : ValueChangedMessage<MeasurementMode>
+    {
+        public MeasurementModeChangedMessage(MeasurementMode value) : base(value) { }
     }
 }

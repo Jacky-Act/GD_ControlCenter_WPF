@@ -49,6 +49,10 @@
                 <pages:SampleSequenceView />
             </DataTemplate>
 
+            <DataTemplate DataType="{x:Type vm:AnalysisWorkstationViewModel}">
+                <pages:AnalysisWorkstationView />
+            </DataTemplate>
+
             <helpers:BatteryWidthConverter x:Key="BatteryWidthConverter"/>
             <helpers:BatteryStatusColorConverter x:Key="BatteryStatusColorConverter"/>
             <helpers:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>

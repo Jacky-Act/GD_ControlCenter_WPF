@@ -98,7 +98,12 @@ namespace GD_ControlCenter_WPF.Models
         /// </summary>
         public List<string> TimeSeriesSampleNames { get; set; } = new List<string>();
 
-        // 可以在此继续添加其他设备的参数，例如：
-        // public int LastPumpRpm { get; set; } = 100;
+        // 定义测量模式枚举
+        public enum MeasurementMode { Continuous, FlowInjection }
+        
+        // ================= 新增：当前测样模式 =================
+        public MeasurementMode CurrentMeasurementMode { get; set; } = MeasurementMode.Continuous;
+        // ======================================================
+        
     }
 }

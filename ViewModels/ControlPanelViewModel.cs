@@ -1,12 +1,14 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using GD_ControlCenter_WPF.Models;
 using GD_ControlCenter_WPF.Models.Messages;
 using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using GD_ControlCenter_WPF.ViewModels.Dialogs;
 using System.Collections.ObjectModel;
+using static GD_ControlCenter_WPF.Models.AppConfig;
 
 
 namespace GD_ControlCenter_WPF.ViewModels
@@ -113,6 +115,8 @@ namespace GD_ControlCenter_WPF.ViewModels
                     }
                 }
             });
+            // 初始化开关状态
+            IsFlowInjectionMode = appConfig.CurrentMeasurementMode == MeasurementMode.FlowInjection;
         }
 
         // --- 交互命令 ---
@@ -439,6 +443,39 @@ namespace GD_ControlCenter_WPF.ViewModels
             _hvVM.IsRunning = false;
             _pumpVM.IsRunning = false;
             _isReigniting = false;
+        }
+
+        // ================= 测量模式切换逻辑 =================
+        [ObservableProperty]
+        private bool _isFlowInjectionMode;
+
+        // 这个命令现在由后台代码 (Code-Behind) 强行调用！
+        [RelayCommand]
+        public void ToggleMeasurementMode()
+        {
+            // 1. 获取本地配置文件
+            var config = _jsonConfigService.Load();
+
+            // 2. 根据当前的界面开关状态 (IsFlowInjectionMode)，更新配置文件
+            config.CurrentMeasurementMode = IsFlowInjectionMode ? MeasurementMode.FlowInjection : MeasurementMode.Continuous;
+            _jsonConfigService.Save(config);
+
+            // 3. 【最关键的一步】发出切换界面的广播消息！
+            WeakReferenceMessenger.Default.Send(new MeasurementModeChangedMessage(config.CurrentMeasurementMode));
+        }
+        // 当 IsFlowInjectionMode 属性改变时，Toolkit 会自动调用这个 partial 方法
+        partial void OnIsFlowInjectionModeChanged(bool value)
+        {
+            // 1. 获取并更新配置
+            var config = _jsonConfigService.Load();
+            config.CurrentMeasurementMode = value ? MeasurementMode.FlowInjection : MeasurementMode.Continuous;
+            _jsonConfigService.Save(config);
+
+            // 2. 直接发送消息，无需等待 Click 事件
+            WeakReferenceMessenger.Default.Send(new MeasurementModeChangedMessage(config.CurrentMeasurementMode));
+
+            // 调试日志（可选）
+            System.Diagnostics.Debug.WriteLine($"[ModeSwitch] 切换至: {config.CurrentMeasurementMode}");
         }
     }
 }

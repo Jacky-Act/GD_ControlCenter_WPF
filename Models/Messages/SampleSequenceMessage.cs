@@ -1,15 +1,30 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace GD_ControlCenter_WPF.Models.Messages
 {
-    // 样品的类型枚举
-    public enum SampleType
+    public enum SampleType { 空白, 标液, 待测液 }
+
+    /// <summary>
+    /// 单个元素的浓度实体（解决 WPF 字典绑定不更新的痛点）
+    /// </summary>
+    public partial class ElementConcentrationModel : ObservableObject
     {
-        空白,    // Blank
-        标液,    // Standard
-        待测液   // Unknown
+        [ObservableProperty] private string _elementName = string.Empty;
+        [ObservableProperty] private string _concentrationValue = string.Empty;
+
+        public ElementConcentrationModel Clone()
+        {
+            return new ElementConcentrationModel
+            {
+                ElementName = this.ElementName,
+                ConcentrationValue = this.ConcentrationValue
+            };
+        }
     }
 
     /// <summary>
@@ -19,33 +34,47 @@ namespace GD_ControlCenter_WPF.Models.Messages
     {
         [ObservableProperty] private string _sampleName = "新样品";
         [ObservableProperty] private SampleType _type = SampleType.待测液;
+        [ObservableProperty] private int _repeats = 1;
+        [ObservableProperty] private string _status = "等待";
 
-        // 标液专属浓度（如果是空白或待测液，UI 上会被隐藏或禁用）
-        [ObservableProperty] private double? _standardConcentration;
+        // 改用 ObservableCollection 存放各个元素的浓度，完美支持双向绑定
+        public ObservableCollection<ElementConcentrationModel> ElementConcentrations { get; set; } = new();
 
-        [ObservableProperty] private int _repeats = 1;      // 重复测量次数
-        [ObservableProperty] private string _status = "等待"; // 状态：等待/测量中/完成/跳过
+        // 拦截类型变化，触发智能重命名
+        partial void OnTypeChanged(SampleType value)
+        {
+            CommunityToolkit.Mvvm.Messaging.WeakReferenceMessenger.Default.Send(new SampleTypeChangedMessage(this));
+        }
 
-        // 深度复制方法（用于右键菜单的复制/粘贴）
         public SampleItemModel Clone()
         {
-            return new SampleItemModel
+            var clone = new SampleItemModel
             {
                 SampleName = this.SampleName + " - 副本",
                 Type = this.Type,
-                StandardConcentration = this.StandardConcentration,
                 Repeats = this.Repeats,
-                Status = "等待"
+                Status = "等待",
+                ElementConcentrations = new ObservableCollection<ElementConcentrationModel>(this.ElementConcentrations.Select(c => c.Clone()))
             };
+            return clone;
         }
     }
 
-    /// <summary>
-    /// 当样品序列发生改变（或者确认下发任务）时，发送此消息。
-    /// 连续测量页和流动注射页订阅此消息，即可拿到最新的进样列表。
-    /// </summary>
+    // --- 跨模块通讯消息 ---
+
     public class SampleSequenceChangedMessage : ValueChangedMessage<List<SampleItemModel>>
     {
         public SampleSequenceChangedMessage(List<SampleItemModel> value) : base(value) { }
+    }
+
+    public class SampleTypeChangedMessage : ValueChangedMessage<SampleItemModel>
+    {
+        public SampleTypeChangedMessage(SampleItemModel value) : base(value) { }
+    }
+
+    // 新增：通知 View 层重绘动态列的消息
+    public class RebuildColumnsMessage : ValueChangedMessage<List<string>>
+    {
+        public RebuildColumnsMessage(List<string> value) : base(value) { }
     }
 }

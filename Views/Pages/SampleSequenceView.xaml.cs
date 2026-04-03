@@ -1,86 +1,57 @@
-﻿using GD_ControlCenter_WPF.Models.Messages;
-using System.Collections.ObjectModel;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using GD_ControlCenter_WPF.Models.Messages;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
+using System.Windows.Data;
 
 namespace GD_ControlCenter_WPF.Views.Pages
 {
     public partial class SampleSequenceView : UserControl
     {
-        private bool _isDragging = false;
-        private int _draggedItemIndex = -1;
-
         public SampleSequenceView()
         {
             InitializeComponent();
 
-            // 绑定拖拽接收事件
-            SequenceDataGrid.PreviewMouseMove += SequenceDataGrid_PreviewMouseMove;
-            SequenceDataGrid.Drop += SequenceDataGrid_Drop;
-            SequenceDataGrid.AllowDrop = true;
+            // 监听 ViewModel 发来的重绘列消息
+            WeakReferenceMessenger.Default.Register<RebuildColumnsMessage>(this, (r, m) =>
+            {
+                Dispatcher.Invoke(() => RebuildDynamicColumns(m.Value));
+            });
         }
 
-        // 1. 鼠标在“把手”上按下时，记录起始索引
-        private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        /// <summary>
+        /// 核心黑魔法：动态生成元素浓度列
+        /// </summary>
+        private void RebuildDynamicColumns(System.Collections.Generic.List<string> activeElements)
         {
-            var row = FindAncestor<DataGridRow>((DependencyObject)e.OriginalSource);
-            if (row != null)
+            // 1. 找到所有由代码动态生成的旧“浓度列”并删除它们
+            var oldColumns = SequenceDataGrid.Columns.Where(c => c.Header != null && c.Header.ToString().EndsWith("标液浓度")).ToList();
+            foreach (var col in oldColumns)
             {
-                _draggedItemIndex = row.GetIndex();
-                _isDragging = true;
+                SequenceDataGrid.Columns.Remove(col);
             }
-        }
 
-        // 2. 鼠标移动时，如果按住左键，则启动拖放操作
-        private void SequenceDataGrid_PreviewMouseMove(object sender, MouseEventArgs e)
-        {
-            if (!_isDragging || e.LeftButton != MouseButtonState.Pressed) return;
-
-            var row = FindAncestor<DataGridRow>((DependencyObject)e.OriginalSource);
-            if (row != null)
+            // 2. 根据最新的大名单，为每个元素创建一列
+            for (int i = 0; i < activeElements.Count; i++)
             {
-                DragDrop.DoDragDrop(row, row.Item, DragDropEffects.Move);
-                _isDragging = false; // 重置状态
-            }
-        }
+                string elName = activeElements[i];
 
-        // 3. 放下时，计算插入位置并在 ViewModel 中调换顺序
-        private void SequenceDataGrid_Drop(object sender, DragEventArgs e)
-        {
-            _isDragging = false;
-            var targetRow = FindAncestor<DataGridRow>((DependencyObject)e.OriginalSource);
-
-            if (targetRow != null && e.Data.GetDataPresent(typeof(SampleItemModel)))
-            {
-                int targetIndex = targetRow.GetIndex();
-
-                // 从 DataGrid 拿到绑定的集合
-                if (SequenceDataGrid.ItemsSource is ObservableCollection<SampleItemModel> collection)
+                var newCol = new DataGridTextColumn
                 {
-                    var draggedItem = collection[_draggedItemIndex];
+                    Header = $"{elName} 标液浓度",
+                    // 这里极其精妙：由于内部存的是 ObservableCollection，我们直接按索引绑定它的 ConcentrationValue 属性！
+                    // 这样输入的值会自动同步回后台，且支持双向触发！
+                    Binding = new Binding($"ElementConcentrations[{i}].ConcentrationValue")
+                    {
+                        UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                    },
+                    Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+                };
 
-                    // 移动元素
-                    collection.RemoveAt(_draggedItemIndex);
-                    collection.Insert(targetIndex, draggedItem);
-
-                    // 自动选中拖拽的元素
-                    SequenceDataGrid.SelectedIndex = targetIndex;
-                }
+                // 将新列追加到 DataGrid 的末尾
+                SequenceDataGrid.Columns.Add(newCol);
             }
-        }
-
-        // 辅助方法：向上查找可视树找到 DataGridRow
-        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
-        {
-            do
-            {
-                if (current is T ancestor) return ancestor;
-                current = VisualTreeHelper.GetParent(current);
-            }
-            while (current != null);
-            return null;
         }
     }
 }

@@ -122,5 +122,16 @@ namespace GD_ControlCenter_WPF.Views.Pages
 
             SpecPlot.Refresh();
         }
+
+        // ================= 强制事件驱动：开关点击 =================
+        private void ToggleButton_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            // 获取绑定在当前页面的 ViewModel
+            if (this.DataContext is GD_ControlCenter_WPF.ViewModels.ControlPanelViewModel vm)
+            {
+                // 直接呼叫 ViewModel 里的切换方法！
+                vm.ToggleMeasurementModeCommand.Execute(null);
+            }
+        }
     }
 }

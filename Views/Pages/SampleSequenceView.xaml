@@ -2,109 +2,95 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:msg="clr-namespace:GD_ControlCenter_WPF.Models.Messages"
              Background="{DynamicResource MaterialDesignPaper}">
-
-    <Grid Margin="15">
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <!-- 顶栏文件流 -->
             <RowDefinition Height="Auto"/>
+            <!-- 批量操作区 -->
+            <RowDefinition Height="*"/>
+            <!-- 大表格 -->
+            <RowDefinition Height="Auto"/>
+            <!-- 底部应用 -->
         </Grid.RowDefinitions>
 
-        <TextBlock Text="样品进样序列配置" FontSize="24" FontWeight="Bold" Margin="0,0,0,15"/>
+        <!-- 1. 顶栏：序列模板与导入导出 -->
+        <materialDesign:Card Grid.Row="0" Margin="0,0,0,10" UniformCornerRadius="6" materialDesign:ElevationAssist.Elevation="Dp1">
+            <StackPanel Orientation="Horizontal" Margin="10,5">
+                <materialDesign:PackIcon Kind="FolderOpenOutline" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox Width="150" materialDesign:HintAssist.Hint="读取本地序列模板" ItemsSource="{Binding SavedTemplates}" SelectedItem="{Binding SelectedTemplate}" Margin="0,0,10,0"/>
+                <Button Content="加载" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding LoadTemplateCommand}" Margin="0,0,30,0" Height="30"/>
 
-        <!-- DataGrid 本体 -->
-        <DataGrid x:Name="SequenceDataGrid" Grid.Row="1" ItemsSource="{Binding Samples}" 
-                  SelectedItem="{Binding SelectedSample, Mode=TwoWay}"
-                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserSortColumns="False"
-                  materialDesign:DataGridAssist.CellPadding="12,8">
+                <TextBox Width="150" materialDesign:HintAssist.Hint="另存为新模板名称" Text="{Binding NewTemplateName}" Margin="0,0,10,0"/>
+                <Button Content="保存模板" Style="{StaticResource MaterialDesignRaisedButton}" Command="{Binding SaveTemplateCommand}" Margin="0,0,30,0" Height="30"/>
 
-            <!-- 右键菜单 -->
+                <Separator Style="{StaticResource MaterialDesignLightSeparator}" Width="2" Height="30" Margin="0,0,30,0">
+                    <Separator.LayoutTransform>
+                        <RotateTransform Angle="90"/>
+                    </Separator.LayoutTransform>
+                </Separator>
+
+                <Button Content="导入 CSV" Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,10,0" Height="30"/>
+                <Button Content="导出 CSV" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding ExportCsvCommand}" Height="30"/>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- 2. 批量生成模块 -->
+        <materialDesign:Card Grid.Row="1" Margin="0,0,0,10" UniformCornerRadius="6" materialDesign:ElevationAssist.Elevation="Dp1" Background="#F3F4F6">
+            <StackPanel Orientation="Horizontal" Margin="15,10">
+                <TextBlock Text="批量快捷建表：" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,20,0"/>
+
+                <TextBlock Text="标准样品数量:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBox Width="50" Text="{Binding BatchStandardCount}" TextAlignment="Center" Margin="0,0,20,0"/>
+
+                <TextBlock Text="待测样品数量:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBox Width="50" Text="{Binding BatchUnknownCount}" TextAlignment="Center" Margin="0,0,20,0"/>
+
+                <Button Content="一键生成新序列" Style="{StaticResource MaterialDesignRaisedButton}" Command="{Binding BatchGenerateCommand}" Height="30"/>
+                <TextBlock Text="(此操作将清空当前表格)" VerticalAlignment="Center" Opacity="0.5" Margin="10,0,0,0"/>
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- 3. 数据表格 (支持动态列注入) -->
+        <DataGrid x:Name="SequenceDataGrid" Grid.Row="2" ItemsSource="{Binding Samples}" SelectedItem="{Binding SelectedSample, Mode=TwoWay}"
+                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserSortColumns="False" materialDesign:DataGridAssist.CellPadding="12,8">
             <DataGrid.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="在下方插入行" Command="{Binding InsertRowCommand}" />
                     <MenuItem Header="删除选中行" Command="{Binding DeleteRowCommand}" Foreground="IndianRed"/>
-                    <Separator/>
-                    <MenuItem Header="复制行" Command="{Binding CopyRowCommand}" />
-                    <MenuItem Header="粘贴行" Command="{Binding PasteRowCommand}" />
-                    <Separator/>
-                    <MenuItem Header="设为标准系列起始行" Command="{Binding SetAsStandardStartCommand}" />
                 </ContextMenu>
             </DataGrid.ContextMenu>
 
             <DataGrid.Columns>
-                <!-- 拖拽把手列 -->
-                <DataGridTemplateColumn Width="40" IsReadOnly="True">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <!-- 这里的图标充当拖拽的把手 -->
-                            <materialDesign:PackIcon Kind="DragVertical" Foreground="Gray" Cursor="SizeAll"
-                                                     VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                     PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- 样品名称 (直接双击编辑) -->
-                <DataGridTextColumn Header="样品名称" Binding="{Binding SampleName, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
-
-                <!-- 样品类型 (下拉框) -->
-                <DataGridTemplateColumn Header="样品类型" Width="1.5*">
+                <!-- 基础列：名称、类型、重复次数 -->
+                <DataGridTextColumn Header="样品名称" Binding="{Binding SampleName, UpdateSourceTrigger=PropertyChanged}" Width="1.5*"/>
+                <DataGridTemplateColumn Header="样品类型" Width="1*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding DataContext.SampleTypes, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}" 
-                                      Margin="0" Padding="4"/>
+                                      SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Margin="0"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-
-                <!-- 标准浓度 (利用 Trigger 只有当 Type==标液 时才允许输入和显示) -->
-                <DataGridTemplateColumn Header="标准浓度 (mg/L)" Width="1.5*">
+                <DataGridTemplateColumn Header="重复次数" Width="80">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBox Text="{Binding StandardConcentration, UpdateSourceTrigger=PropertyChanged}" 
-                                     VerticalAlignment="Center" HorizontalAlignment="Stretch">
-                                <TextBox.Style>
-                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                        <Setter Property="IsEnabled" Value="False"/>
-                                        <Setter Property="Opacity" Value="0.3"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Type}" Value="{x:Static msg:SampleType.标液}">
-                                                <Setter Property="IsEnabled" Value="True"/>
-                                                <Setter Property="Opacity" Value="1.0"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBox.Style>
-                            </TextBox>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- 测量次数 -->
-                <!-- 替换为带有 ComboBox 的模板列 -->
-                <DataGridTemplateColumn Header="重复次数" Width="1*">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <!-- 绑定机制和前面的样品类型下拉框一模一样 -->
                             <ComboBox ItemsSource="{Binding DataContext.AvailableRepeats, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                      SelectedItem="{Binding Repeats, UpdateSourceTrigger=PropertyChanged}" 
-                      Margin="0" Padding="4" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                                      SelectedItem="{Binding Repeats, UpdateSourceTrigger=PropertyChanged}" Margin="0"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTextColumn Header="状态" Binding="{Binding Status}" IsReadOnly="True" Width="80"/>
 
-                <!-- 状态 (只读) -->
-                <DataGridTextColumn Header="状态" Binding="{Binding Status}" IsReadOnly="True" Width="1*"/>
+                <!-- 动态浓度列将由后台 C# 代码在此处自动注入 -->
+
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- 底部按钮 -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button Content="追加新行" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding AddRowCommand}" Margin="0,0,10,0"/>
-            <Button Content="应用当前序列至测量库" Style="{StaticResource MaterialDesignRaisedButton}" Command="{Binding ApplySequenceCommand}"/>
+        <!-- 4. 底部应用 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="追加空白行" Style="{StaticResource MaterialDesignOutlinedButton}" Command="{Binding AddRowCommand}" Margin="0,0,10,0"/>
+            <Button Content="应用当前序列至测量库" Style="{StaticResource MaterialDesignRaisedButton}" Command="{Binding ApplySequenceCommand}" Width="200"/>
         </StackPanel>
     </Grid>
 </UserControl>
