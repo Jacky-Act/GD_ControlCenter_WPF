@@ -36,7 +36,8 @@ namespace GD_ControlCenter_WPF.Views.Components
                         vm.ElementConfigVM.RefreshGlobalSettings(); break;
                     case 3: vm.CurrentPage = vm.SampleSequenceVM; break;
                     case 4: vm.CurrentPage = vm.AnalysisWorkstationVM; break;
-                    case 5: vm.CurrentPage = vm.FittingCurveVM; break;
+                    case 5: vm.CurrentPage = vm.DataProcessingVM; break;
+                    case 6: vm.CurrentPage = vm.ReportGenerationVM; break;
                 }
             }
         }

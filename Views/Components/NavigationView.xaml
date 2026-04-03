@@ -76,11 +76,22 @@
                     </TabItem.Header>
                 </TabItem>
 
-                <TabItem x:Name="FittingCurveTab">
+                <!-- 删除原来的 FittingCurveTab -->
+
+                <TabItem x:Name="DataProcessingTab">
                     <TabItem.Header>
                         <StackPanel Width="52" Margin="0,8">
-                            <materialDesign:PackIcon Kind="ChartLine" HorizontalAlignment="Center" Width="24" Height="24"/>
-                            <TextBlock Text="拟合曲线" HorizontalAlignment="Center" FontSize="11"/>
+                            <materialDesign:PackIcon Kind="DatabaseSearch" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="数据处理" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </TabItem.Header>
+                </TabItem>
+
+                <TabItem x:Name="ReportGenerationTab">
+                    <TabItem.Header>
+                        <StackPanel Width="52" Margin="0,8">
+                            <materialDesign:PackIcon Kind="FileChartOutline" HorizontalAlignment="Center" Width="24" Height="24"/>
+                            <TextBlock Text="报告生成" HorizontalAlignment="Center" FontSize="11"/>
                         </StackPanel>
                     </TabItem.Header>
                 </TabItem>

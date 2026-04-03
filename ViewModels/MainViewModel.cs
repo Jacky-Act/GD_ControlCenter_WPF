@@ -17,8 +17,9 @@ namespace GD_ControlCenter_WPF.ViewModels
         public SampleSequenceViewModel SampleSequenceVM { get; }
         public AnalysisWorkstationViewModel AnalysisWorkstationVM { get; }
 
-        // FittingCurveVM 暂时没服务依赖，允许 new
-        public FittingCurveViewModel FittingCurveVM { get; } = new();
+        public DataProcessingViewModel DataProcessingVM { get; } = new();
+        public ReportGenerationViewModel ReportGenerationVM { get; } = new();
+
 
         private readonly HighVoltageService _hvService;
         private readonly JsonConfigService _configService;

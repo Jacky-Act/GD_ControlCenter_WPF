@@ -10,17 +10,16 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
 
 namespace GD_ControlCenter_WPF.Views.Pages
 {
     /// <summary>
-    /// FittingCurveView.xaml 的交互逻辑
+    /// DataProcessingView.xaml 的交互逻辑
     /// </summary>
-    public partial class FittingCurveView : UserControl
+    public partial class DataProcessingView : UserControl
     {
-        public FittingCurveView()
+        public DataProcessingView()
         {
             InitializeComponent();
         }

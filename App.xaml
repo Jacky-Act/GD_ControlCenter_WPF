@@ -28,10 +28,6 @@
                 <pages:ElementConfigView />
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type vm:FittingCurveViewModel}">
-                <pages:FittingCurveView />
-            </DataTemplate>
-
             <DataTemplate DataType="{x:Type vm:SampleMeasurementViewModel}">
                 <pages:SampleMeasurementView />
             </DataTemplate>
@@ -51,6 +47,16 @@
 
             <DataTemplate DataType="{x:Type vm:AnalysisWorkstationViewModel}">
                 <pages:AnalysisWorkstationView />
+            </DataTemplate>
+
+            <!-- 数据处理 -->
+            <DataTemplate DataType="{x:Type vm:DataProcessingViewModel}">
+                <pages:DataProcessingView />
+            </DataTemplate>
+
+            <!-- 报告生成 -->
+            <DataTemplate DataType="{x:Type vm:ReportGenerationViewModel}">
+                <pages:ReportGenerationView />
             </DataTemplate>
 
             <helpers:BatteryWidthConverter x:Key="BatteryWidthConverter"/>
