@@ -24,8 +24,8 @@ namespace GD_ControlCenter_WPF.Views.Pages
 
         private void SetupPlots()
         {
-            SpecPlot.Menu.Clear();
-            SpecPlot.Menu.Add("寻峰", (p) =>
+            SpecPlot.Menu?.Clear();
+            SpecPlot.Menu?.Add("寻峰", (p) =>
             {
                 double mouseWl = SpecPlot.Plot.Axes.Bottom.Range.Center;
                 if (this.DataContext is SampleMeasurementViewModel vm)
@@ -33,7 +33,7 @@ namespace GD_ControlCenter_WPF.Views.Pages
                     Dispatcher.Invoke(() => vm.PickedElements.Add($"峰@{mouseWl:F2}"));
                 }
             });
-            SpecPlot.Menu.Add("去除所有峰", (p) =>
+            SpecPlot.Menu?.Add("去除所有峰", (p) =>
             {
                 if (this.DataContext is SampleMeasurementViewModel vm)
                 {
