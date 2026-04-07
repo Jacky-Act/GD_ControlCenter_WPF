@@ -1,99 +1,75 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.ViewModels;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+using GD_ControlCenter_WPF.Services.Spectrometer.Logic;
+using ScottPlot;
 using System.Windows.Controls;
+using System;
 
 namespace GD_ControlCenter_WPF.Views.Pages
 {
     public partial class FlowInjectionView : UserControl
     {
-        // 数据缓存：字典键为元素名称，值为该元素的 (Time, Intensity) 数据点列表
-        private readonly ConcurrentDictionary<string, List<double>> _timeDict = new();
-        private readonly ConcurrentDictionary<string, List<double>> _intensityDict = new();
-
-        // 记录当前正在绘制哪个元素
-        private string _currentPlotElement = string.Empty;
-
-        // ScottPlot 的数据记录器，用于高性能动态追加数据
-        private ScottPlot.Plottables.DataLogger? _dataLogger;
+        private ScottPlot.Plottables.DataLogger _dataLogger;
+        private double _timeCounter = 0;
 
         public FlowInjectionView()
         {
             InitializeComponent();
 
-            // 初始化图表样式
-            RealTimePlot.Plot.Axes.Bottom.Label.Text = "时间 (s)";
-            RealTimePlot.Plot.Axes.Left.Label.Text = "光谱强度 (Counts)";
-            RealTimePlot.Plot.Grid.MajorLineColor = ScottPlot.Colors.White.WithAlpha(0.2);
+            // 初始化下方的时序趋势图 DataLogger
+            _dataLogger = TimeSeriesPlot.Plot.Add.DataLogger();
+            TimeSeriesPlot.Plot.Axes.AutoScale();
 
-            // 1. 订阅实时绘图点消息 (由 FlowInjectionLogic 发出)
-            WeakReferenceMessenger.Default.Register<FlowInjectionPlotMessage>(this, (r, m) =>
+            // 注册消息：接收光谱仪数据
+            WeakReferenceMessenger.Default.Register<SpectralDataMessage>(this, (r, m) =>
             {
-                var point = m.Value;
-
-                // 存入内存缓存
-                if (!_timeDict.ContainsKey(point.ElementName))
-                {
-                    _timeDict[point.ElementName] = new List<double>();
-                    _intensityDict[point.ElementName] = new List<double>();
-                }
-                _timeDict[point.ElementName].Add(point.Time);
-                _intensityDict[point.ElementName].Add(point.Intensity);
-
-                // 如果新来的点正好是当前选中的元素，就画出来
-                if (point.ElementName == _currentPlotElement && _dataLogger != null)
-                {
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        _dataLogger.Add(point.Time, point.Intensity);
-
-                        // 彻底绕开 ScottPlot 的版本问题，直接检查我们自己维护的字典
-                        if (_timeDict.ContainsKey(point.ElementName) && _timeDict[point.ElementName].Count > 0)
-                        {
-                            RealTimePlot.Plot.Axes.AutoScale();
-                            RealTimePlot.Refresh();
-                        }
-                    });
-                }
+                Dispatcher.Invoke(() => RenderPlots(m.Value));
             });
 
-            // 2. 订阅元素切换消息 (由 ViewModel 下拉框改变时发出)
-            WeakReferenceMessenger.Default.Register<SwitchPlotElementMessage>(this, (r, m) =>
+            // 右键菜单配置（寻峰逻辑）
+            SpecPlot.Menu?.Clear();
+            SpecPlot.Menu?.Add("捕捉此点作为元素峰", (p) =>
             {
-                // 修复点2：因为继承了 ValueChangedMessage<string>，所以这里用 m.Value
-                Dispatcher.Invoke(() => SwitchElementChart(m.Value));
+                double wl = SpecPlot.Plot.Axes.Bottom.Range.Center;
+                if (this.DataContext is FlowInjectionViewModel vm)
+                {
+                    vm.PickedElements.Add($"峰@{wl:F2}");
+                }
             });
         }
 
-        /// <summary>
-        /// 切换图表显示的元素
-        /// </summary>
-        private void SwitchElementChart(string newElement)
+        private void RenderPlots(SpectralData data)
         {
-            _currentPlotElement = newElement;
+            if (data.Wavelengths == null || data.Wavelengths.Length == 0) return;
 
-            // 清空旧图表
-            RealTimePlot.Plot.Clear();
+            var vm = this.DataContext as FlowInjectionViewModel;
+            if (vm == null) return;
 
-            // 新建一个数据记录器
-            _dataLogger = RealTimePlot.Plot.Add.DataLogger();
-            _dataLogger.Color = ScottPlot.Color.FromHex("#0071C2"); // 蓝色线条
-            _dataLogger.LineWidth = 2;
+            double targetWl = vm.GetTargetWavelength();
 
-            // 如果该元素已经有历史数据，一次性把历史数据全倒进去
-            if (_timeDict.TryGetValue(newElement, out var times) &&
-                _intensityDict.TryGetValue(newElement, out var intensities))
+            // 1. 渲染上图：实时全谱
+            SpecPlot.Plot.Clear();
+            var fullLine = SpecPlot.Plot.Add.Scatter(data.Wavelengths, data.Intensities);
+            fullLine.MarkerSize = 0;
+            fullLine.Color = ScottPlot.Colors.MediumPurple;
+            SpecPlot.Plot.Axes.AutoScale();
+            SpecPlot.Refresh();
+
+            // 2. 渲染下图：单元素时序（流动注射核心）
+            if (targetWl > 0)
             {
-                for (int i = 0; i < times.Count; i++)
-                {
-                    _dataLogger.Add(times[i], intensities[i]);
-                }
-            }
+                double currentIntensity = SpectrometerLogic.GetIntensityAtWavelength(data, targetWl);
 
-            RealTimePlot.Plot.Axes.AutoScale();
-            RealTimePlot.Refresh();
+                // 向 DataLogger 添加点（X为计数或时间，Y为强度）
+                _dataLogger.Add(_timeCounter++, currentIntensity);
+                TimeSeriesPlot.Plot.Axes.AutoScale();
+                TimeSeriesPlot.Refresh();
+
+                // 同时将数据反馈给 ViewModel 缓冲区，用于计算峰高
+                vm.AddDataToScan(currentIntensity);
+            }
         }
     }
 }

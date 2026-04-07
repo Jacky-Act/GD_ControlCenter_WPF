@@ -2,131 +2,101 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using GD_ControlCenter_WPF.Models.Messages;
+using GD_ControlCenter_WPF.Models.Spectrometer;
 using GD_ControlCenter_WPF.Services;
-using GD_ControlCenter_WPF.Services.Spectrometer;
+using GD_ControlCenter_WPF.Services.Spectrometer.Logic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Windows;
 
 namespace GD_ControlCenter_WPF.ViewModels
 {
     public partial class FlowInjectionViewModel : ObservableObject
     {
-        private readonly FlowInjectionLogic _logic;
+        private readonly JsonConfigService _configService;
+        private readonly ElementConfigViewModel _elementConfigVM;
 
-        // --- UI 绑定的数据集合 ---
+        [ObservableProperty] private ObservableCollection<SampleItemModel> _measurementSequence = new();
+        [ObservableProperty] private SampleItemModel? _currentSample;
+        [ObservableProperty] private bool _isScanning; // 正在单次扫描
 
-        // 顶部表：模拟的多元素分析配置
-        [ObservableProperty]
-        private ObservableCollection<dynamic> _activeConfigs = new();
+        // 右侧：扫描记录表
+        [ObservableProperty] private ObservableCollection<FlowInjectionResultData> _scanRecords = new();
+        [ObservableProperty] private FlowInjectionResultData? _selectedScanRecord;
 
-        // 右上表：所有被捕获的峰值记录 (元素 + 次序)
-        [ObservableProperty]
-        private ObservableCollection<FlowInjectionResultData> _scanRecords = new();
+        [ObservableProperty] private ObservableCollection<string> _pickedElements = new();
+        [ObservableProperty] private string _selectedElement = string.Empty;
 
-        // 右上表：当前被选中的那一行记录
-        private FlowInjectionResultData? _selectedScanRecord;
-        public FlowInjectionResultData? SelectedScanRecord
+        private List<double> _scanBuffer = new(); // 记录本次扫描的所有强度点
+
+        public FlowInjectionViewModel(JsonConfigService configService, ElementConfigViewModel elementConfigVM)
         {
-            get => _selectedScanRecord;
-            set
-            {
-                if (SetProperty(ref _selectedScanRecord, value))
-                {
-                    // 联动更新右下角的详情表
-                    UpdateSelectedScanResults();
-                }
-            }
-        }
+            _configService = configService;
+            _elementConfigVM = elementConfigVM;
 
-        // 右下表：选中记录的详情（背景、峰值、时间等）
-        [ObservableProperty]
-        private ObservableCollection<FlowInjectionResultData> _selectedScanResults = new();
-
-        // --- 时序图相关的绑定 ---
-
-        [ObservableProperty]
-        private ObservableCollection<string> _availableElements = new();
-
-        private string _selectedPlotElement = string.Empty;
-        public string SelectedPlotElement
-        {
-            get => _selectedPlotElement;
-            set
-            {
-                if (SetProperty(ref _selectedPlotElement, value))
-                {
-                    // 切换元素时，发送消息让 View 层清空并重绘该元素的历史曲线
-                    WeakReferenceMessenger.Default.Send(new SwitchPlotElementMessage(value));
-                }
-            }
-        }
-
-        public FlowInjectionViewModel()
-        {
-            _logic = new FlowInjectionLogic();
-
-            // 1. 初始化模拟的分析配置 (实际中可从 JsonConfigService 加载)
-            ActiveConfigs.Add(new { ElementName = "Pb", Wavelength = "283.3", EquationText = "y=0.5x+1", RSquaredText = "0.998" });
-            ActiveConfigs.Add(new { ElementName = "Cd", Wavelength = "228.8", EquationText = "y=1.2x+0.5", RSquaredText = "0.999" });
-
-            AvailableElements.Add("Pb");
-            AvailableElements.Add("Cd");
-            SelectedPlotElement = "Pb";
-
-            // 2. 监听寻峰算法算出的峰值结果
-            WeakReferenceMessenger.Default.Register<FlowInjectionResultMessage>(this, (r, m) =>
-            {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // 添加到总记录表
-                    ScanRecords.Add(m.Value);
-                    // 自动选中最新的一条，方便用户直接看到详情
-                    SelectedScanRecord = m.Value;
-                });
+            // 订阅序列
+            WeakReferenceMessenger.Default.Register<SampleSequenceChangedMessage>(this, (r, m) => {
+                MeasurementSequence = new ObservableCollection<SampleItemModel>(m.Value);
             });
         }
 
-        private void UpdateSelectedScanResults()
+        // --- 核心按钮控制 ---
+
+        // 按钮1：开始单次扫描
+        [RelayCommand]
+        private void StartScan()
         {
-            SelectedScanResults.Clear();
-            if (SelectedScanRecord != null)
+            if (CurrentSample == null) return;
+            _scanBuffer.Clear();
+            IsScanning = true;
+            CurrentSample.Status = "正在扫描...";
+        }
+
+        // 按钮2：停止扫描并计算峰值
+        [RelayCommand]
+        private void StopScan()
+        {
+            IsScanning = false;
+            if (_scanBuffer.Count > 0)
             {
-                SelectedScanResults.Add(SelectedScanRecord);
+                // 计算峰值数据
+                var result = new FlowInjectionResultData
+                {
+                    ScanIndex = ScanRecords.Count + 1,
+                    ElementName = SelectedElement,
+                    PeakIntensity = _scanBuffer.Max(),
+                    BackgroundIntensity = _scanBuffer.Min(),
+                    StartTime = 0, // 可根据实际时间戳记录
+                    EndTime = _scanBuffer.Count * 0.1
+                };
+                ScanRecords.Add(result);
             }
         }
 
-        // --- 控制命令 ---
-
+        // 按钮3：完成该样品（清空记录，跳到下一个）
         [RelayCommand]
-        private void CollectBackground()
+        private void FinishSample()
         {
-            // 在实际代码中，可抓取当前最近的一帧光谱给 Logic
-            // 这里为了演示，我们假设直接通知 Logic 取下一帧作为背景
-            // _logic.CollectBackground(currentSpectralData);
+            if (CurrentSample == null) return;
+            CurrentSample.Status = "已完成";
+            ScanRecords.Clear(); // 清空右侧记录，为下个样品腾位子
+
+            int currentIndex = MeasurementSequence.IndexOf(CurrentSample);
+            if (currentIndex < MeasurementSequence.Count - 1)
+                CurrentSample = MeasurementSequence[currentIndex + 1];
+            else
+                MessageBox.Show("全序列流动注射测量完成！");
         }
 
-        [RelayCommand]
-        private void StartScanning()
+        public void AddDataToScan(double intensity)
         {
-            // 提取目标元素和波长字典
-            var targets = new Dictionary<string, double>
-            {
-                { "Pb", 283.3 },
-                { "Cd", 228.8 }
-            };
-
-            // 告诉寻峰逻辑开始工作
-            _logic.StartScanning(targets);
-
-            // 让底层硬件开始狂奔采集
-            SpectrometerManager.Instance.StartAll();
+            if (IsScanning) _scanBuffer.Add(intensity);
         }
 
-        [RelayCommand]
-        private void StopScanning()
+        public double GetTargetWavelength()
         {
-            _logic.StopScanning();
-            SpectrometerManager.Instance.StopAll();
+            var config = _elementConfigVM.SelectedConfigs.FirstOrDefault(x => x.ElementName == SelectedElement);
+            return config?.Wavelength ?? 0;
         }
     }
-
 }
