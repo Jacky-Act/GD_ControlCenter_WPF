@@ -57,4 +57,16 @@ namespace GD_ControlCenter_WPF.Models.Messages
             IsMatrixView = isMatrixView;
         }
     }
+
+    /// <summary>
+    // 用于通知 View 切换光谱视图模式
+    /// </summary>
+    public class ChangeSpectrumViewMessage
+    {
+        public string Mode { get; } // "TOTAL" 或 "ELEMENT"
+        public ChangeSpectrumViewMessage(string mode)
+        {
+            Mode = mode;
+        }
+    }
 }

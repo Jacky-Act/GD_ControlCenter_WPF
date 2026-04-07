@@ -16,6 +16,9 @@ namespace GD_ControlCenter_WPF.Models.Messages
     {
         [ObservableProperty] private string _elementName = string.Empty;
         [ObservableProperty] private string _concentrationValue = string.Empty;
+        
+        // --- 新增：存储该元素在该瓶样品中测量到的平均强度 ---
+        [ObservableProperty] private double _measuredIntensity = 0;
 
         public ElementConcentrationModel Clone()
         {
