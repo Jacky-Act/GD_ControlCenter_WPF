@@ -540,9 +540,36 @@ namespace GD_ControlCenter_WPF.ViewModels
                 platformService, calibrationService, jsonConfigService, peakTrackingService, () => window.Close());
 
             window.DataContext = vm;
-            window.Owner = Application.Current.MainWindow;
-            window.ShowDialog();
+            window.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+
+            // 获取当前主窗口
+            var mainWindow = System.Windows.Application.Current.MainWindow;
+
+            // 定义主窗口关闭时的联动动作：关掉当前的三维平台窗口
+            EventHandler mainWindowClosedHandler = (sender, e) =>
+            {
+                window.Close();
+            };
+
+            if (mainWindow != null)
+            {
+                // 绑定主窗口关闭事件
+                mainWindow.Closed += mainWindowClosedHandler;
+            }
+
+            // 订阅窗口自身的关闭事件
+            window.Closed += (sender, e) =>
+            {               
+
+                // 如果子窗口自己先被关闭了，必须解绑主窗口的事件，防止内存泄漏
+                if (mainWindow != null)
+                {
+                    mainWindow.Closed -= mainWindowClosedHandler;
+                }
+            };
+
             vm.SavePreferences();
+            window.Show();
         }
 
         /// <summary> 打开积分时间调整对话框。 </summary>

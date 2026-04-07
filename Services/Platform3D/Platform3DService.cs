@@ -173,6 +173,12 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
                 CurrentPosition[axis] = 0;
                 Status.IsAtMin[axis] = true;
                 Status.IsAtMax[axis] = false;
+
+                // 新增：一旦收到 Z 轴零点信号，激活负向软限位逻辑
+                if (axis == AxisType.Z)
+                {
+                    Status.HasReceivedZZero = true;
+                }
             }
             else
             {
@@ -207,10 +213,13 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
             {
                 if (axis == AxisType.Z)
                 {
-                    // Z 轴特殊负向行程拦截 (-2000)
-                    if (CurrentPosition[axis] <= 0 && CurrentPosition[axis] - step < PlatformLimits.MinStepZ)
+                    // 只有在收到硬件零点信号后，才执行 -2000 的软限位拦截
+                    if (Status.HasReceivedZZero)
                     {
-                        return false;
+                        if (CurrentPosition[axis] - step < PlatformLimits.MinStepZ)
+                        {
+                            return false;
+                        }
                     }
                 }
                 else
@@ -253,7 +262,7 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
         /// <summary>
         /// 移动时间估算公式。
         /// </summary>
-        private int CalculateMoveDelay(int step) => (step / 500) * 1000 + 500;
+        private int CalculateMoveDelay(int step) => (step / 500) * 1000 + 300;
 
         #endregion
 
@@ -277,6 +286,12 @@ namespace GD_ControlCenter_WPF.Services.Platform3D
                 Status.IsAtMin[AxisType.X] = config.Platform3D.IsAtMin.GetValueOrDefault("X", false);
                 Status.IsAtMin[AxisType.Y] = config.Platform3D.IsAtMin.GetValueOrDefault("Y", false);
                 Status.IsAtMin[AxisType.Z] = config.Platform3D.IsAtMin.GetValueOrDefault("Z", false);
+
+                // 新增：如果历史状态记录 Z 轴在零点，则认为零点已确立
+                if (Status.IsAtMin[AxisType.Z])
+                {
+                    Status.HasReceivedZZero = true;
+                }
             }
 
             if (config.Platform3D.IsAtMax != null)

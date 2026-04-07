@@ -64,6 +64,11 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
         public bool IsHomed { get; set; }
 
         /// <summary>
+        /// 标记 Z 轴是否已收到过物理零点信号
+        /// </summary>
+        public bool HasReceivedZZero { get; set; }
+
+        /// <summary>
         /// 各轴零点边界标志（Min）
         /// </summary>
         public Dictionary<AxisType, bool> IsAtMin { get; set; } = new()

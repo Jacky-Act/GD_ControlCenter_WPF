@@ -253,12 +253,14 @@ namespace GD_ControlCenter_WPF.ViewModels.Dialogs
             {
                 if (targetAxis == AxisType.Z)
                 {
-                    // Z 轴特殊放行逻辑：> 0 时靠硬件拦截；<= 0 时执行软限位拦截。
-                    if (_platformService.CurrentPosition.Z <= 0 &&
-                        _platformService.CurrentPosition.Z - step < PlatformLimits.MinStepZ)
+                    // Z 轴特殊放行逻辑：确立物理零点后，才执行 -2000 软限位判断。
+                    if (_platformService.Status.HasReceivedZZero)
                     {
-                        CalibrationStatus = $"操作拒绝：Z 轴超过最低软限位 ({PlatformLimits.MinStepZ})。";
-                        return;
+                        if (_platformService.CurrentPosition.Z - step < PlatformLimits.MinStepZ)
+                        {
+                            CalibrationStatus = $"操作拒绝：Z 轴超过最低软限位 ({PlatformLimits.MinStepZ})。";
+                            return;
+                        }
                     }
                 }
                 else if (_platformService.Status.IsAtMin[targetAxis])
