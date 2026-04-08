@@ -80,7 +80,7 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
     /// 光谱数据实体。
     /// 承载一次完整测量所生成的波长与强度数组。
     /// </summary>
-    public class SpectralData
+    public  partial class SpectralData
     {
         /// <summary>
         /// 波长数组（单位：nm）。
@@ -119,6 +119,21 @@ namespace GD_ControlCenter_WPF.Models.Spectrometer
             Wavelengths = wavelengths;
             Intensities = intensities;
             SourceDeviceSerial = serial;
+        }
+        // 在 SpectrometerModel.cs 结尾处添加
+        public partial class TrackedPeak : ObservableObject
+        {
+            [ObservableProperty] private double _baseWavelength;
+            [ObservableProperty] private double _toleranceWindow = 2.0;
+            [ObservableProperty] private double _currentWavelength;
+            [ObservableProperty] private double _currentIntensity;
+
+            public TrackedPeak(double baseWavelength, double toleranceWindow = 2.0)
+            {
+                BaseWavelength = baseWavelength;
+                ToleranceWindow = toleranceWindow;
+                CurrentWavelength = baseWavelength;
+            }
         }
     }
 }

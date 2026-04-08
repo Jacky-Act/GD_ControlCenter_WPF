@@ -3,36 +3,77 @@ using GD_ControlCenter_WPF.Models.Messages;
 using System.Collections.Concurrent;
 using System.IO.Ports;
 
+/*
+ * 文件名: SerialPortService.cs
+ * 描述: 标准串口服务的具体实现类，负责物理层交互、协议数据转发及发送任务调度。
+ * 内部集成生产者-消费者队列模型，利用 SemaphoreSlim 实现高效非阻塞的优先级指令调度，保障并发写入时的线程安全。
+ * 维护指南: ProcessSendQueueAsync 中的 Task.Delay 需根据下位机 MCU 的解析性能进行微调；Close 方法通过后台 Task 隔离以规避底层驱动引发的 UI 线程死锁。
+ */
+
 namespace GD_ControlCenter_WPF.Services
 {
-    /// <summary>
-    /// 标准串口服务：负责硬件交互、协议解析预处理及消息分发
-    /// 加入了生产者-消费者队列，保障并发写入时的线程安全与硬件处理间隔
-    /// </summary>
     public partial class SerialPortService : ISerialPortService, IDisposable
     {
+        /// <summary>
+        /// 核心 SerialPort 实例，负责底层的串口 IO 操作。
+        /// </summary>
         private SerialPort? _serialPort;
+
+        /// <summary>
+        /// 配置服务引用，用于读取和保存上次连接的串口记录。
+        /// </summary>
         private readonly JsonConfigService _configService;
 
-        // --- 并发队列控制相关字段 ---
+        /// <summary>
+        /// 高优先级指令并发队列（存储硬件控制类报文）。
+        /// </summary>
         private readonly ConcurrentQueue<byte[]> _highPriorityQueue = new();
+
+        /// <summary>
+        /// 低优先级指令并发队列（存储轮询查询类报文）。
+        /// </summary>
         private readonly ConcurrentQueue<byte[]> _lowPriorityQueue = new();
+
+        /// <summary>
+        /// 异步信号量，用于在指令入队时唤醒后台发送线程。
+        /// </summary>
         private readonly SemaphoreSlim _signal = new(0);
+
+        /// <summary>
+        /// 用于管理后台任务生命周期的取消令牌源。
+        /// </summary>
         private readonly CancellationTokenSource _cts = new();
 
+        /// <summary>
+        /// 连接状态变更事件。
+        /// </summary>
         public event Action<bool>? ConnectionStatusChanged;
 
+        /// <summary>
+        /// 串口是否处于开启状态。
+        /// </summary>
         public bool IsOpen { get; private set; }
+
+        /// <summary>
+        /// 当前操作的串口名称。
+        /// </summary>
         public string? CurrentPortName { get; private set; }
 
+        /// <summary>
+        /// 构造函数：初始化串口服务并启动后台消费处理线程。
+        /// </summary>
+        /// <param name="configService">注入的配置管理服务。</param>
         public SerialPortService(JsonConfigService configService)
         {
             _configService = configService;
 
-            // 实例化时即启动后台发送队列处理器
+            // 启动独立线程/任务处理发送队列，避免阻塞调用方
             Task.Run(() => ProcessSendQueueAsync(_cts.Token));
         }
 
+        /// <summary>
+        /// 执行自动连接逻辑：读取配置文件并尝试激活上次使用的物理串口。
+        /// </summary>
         public void AutoConnect()
         {
             var config = _configService.Load();
@@ -46,13 +87,16 @@ namespace GD_ControlCenter_WPF.Services
         }
 
         /// <summary>
-        /// 获取当前系统可用串口列表
+        /// 获取当前计算设备上所有已识别的串口名称。
         /// </summary>
         public string[] GetAvailablePorts() => SerialPort.GetPortNames();
 
         /// <summary>
-        /// 开启串口
+        /// 初始化并打开指定的串口，同时更新全局配置。
         /// </summary>
+        /// <param name="portName">目标串口名称。</param>
+        /// <param name="baudRate">通讯波特率。</param>
+        /// <returns>成功打开返回 True，发生异常返回 False。</returns>
         public bool Open(string portName, int baudRate)
         {
             try
@@ -73,9 +117,10 @@ namespace GD_ControlCenter_WPF.Services
                 _serialPort.DataReceived += OnSerialDataReceived;
                 _serialPort.Open();
 
-                // 核心：更新内部状态并对外触发事件
+                // 同步内部状态并发布连接成功事件
                 UpdateConnectionStatus(true, portName);
 
+                // 持久化串口选择
                 var config = _configService.Load();
                 config.LastSerialPort = portName;
                 _configService.Save(config);
@@ -89,29 +134,49 @@ namespace GD_ControlCenter_WPF.Services
         }
 
         /// <summary>
-        /// 关闭串口并释放资源
+        /// 安全关闭串口，采用后台隔离执行方式防止 UI 线程死锁，并清空待发队列。
         /// </summary>
         public void Close()
         {
             if (_serialPort != null)
             {
+                // 立即解绑事件处理器，防止关闭过程中继续触发回调
                 _serialPort.DataReceived -= OnSerialDataReceived;
-                if (_serialPort.IsOpen) _serialPort.Close();
-                _serialPort.Dispose();
+
+                var spToClose = _serialPort;
                 _serialPort = null;
+
+                // 串口关闭在某些驱动下可能耗时极长，故放入后台执行并设定超时等待
+                var closeTask = Task.Run(() =>
+                {
+                    try
+                    {
+                        if (spToClose.IsOpen)
+                        {
+                            spToClose.DiscardInBuffer();
+                            spToClose.DiscardOutBuffer();
+                            spToClose.Close();
+                        }
+                        spToClose.Dispose();
+                    }
+                    catch { /* 忽略 IO 释放过程中的异常 */ }
+                });
+
+                closeTask.Wait(TimeSpan.FromMilliseconds(500));
             }
 
-            // 清空未发送的队列指令，避免下次打开时堆积发送
+            // 清理所有积压的指令，防止重连后发送过期的“僵尸”指令
             _highPriorityQueue.Clear();
             _lowPriorityQueue.Clear();
 
-            // 核心：更新内部状态并对外触发事件
             UpdateConnectionStatus(false, null);
         }
 
         /// <summary>
-        /// 统一处理状态变更和事件触发
+        /// 更新服务内部连接状态，并视情况触发外部事件通知。
         /// </summary>
+        /// <param name="isOpen">连接是否建立。</param>
+        /// <param name="portName">串口名。</param>
         private void UpdateConnectionStatus(bool isOpen, string? portName)
         {
             if (IsOpen != isOpen || CurrentPortName != portName)
@@ -123,89 +188,85 @@ namespace GD_ControlCenter_WPF.Services
         }
 
         /// <summary>
-        /// 发送 Hex 字节数组（推入队列，不阻塞当前线程）
+        /// 生产者：将指令数据按优先级推入队列，并激活消费信号。
         /// </summary>
+        /// <param name="data">指令字节数组。</param>
+        /// <param name="priority">发送优先级。</param>
         public void Send(byte[] data, CommandPriority priority = CommandPriority.High)
         {
             if (priority == CommandPriority.High)
-            {
                 _highPriorityQueue.Enqueue(data);
-            }
             else
-            {
                 _lowPriorityQueue.Enqueue(data);
-            }
 
-            // 释放一个信号，唤醒后台消费线程
             _signal.Release();
         }
 
         /// <summary>
-        /// 消费者：单线程持续提取并发送指令
+        /// 消费者任务：独立循环监听队列，执行优先级调度发送逻辑。
         /// </summary>
+        /// <param name="token">任务取消令牌。</param>
         private async Task ProcessSendQueueAsync(CancellationToken token)
         {
             try
             {
                 while (!token.IsCancellationRequested)
                 {
-                    // 等待队列中有数据进入
+                    // 挂起等待指令信号
                     await _signal.WaitAsync(token);
 
                     byte[]? commandToSend = null;
 
-                    // 严格的优先级校验：永远先尝试从高优先级队列取数据
+                    // 优先级调度逻辑：优先处理高优先级队列中的所有积压指令
                     if (_highPriorityQueue.TryDequeue(out var highCmd))
-                    {
                         commandToSend = highCmd;
-                    }
                     else if (_lowPriorityQueue.TryDequeue(out var lowCmd))
-                    {
                         commandToSend = lowCmd;
-                    }
 
-                    // 只有在串口打开的情况下才执行写入
-                    if (commandToSend != null && _serialPort != null && _serialPort.IsOpen)
+                    if (commandToSend != null && _serialPort is { IsOpen: true })
                     {
                         try
                         {
                             _serialPort.Write(commandToSend, 0, commandToSend.Length);
 
-                            // 强制安全间隔：确保下位机有充足时间处理上一帧（这里设为30ms）
-                            await Task.Delay(30, token);
+                            // 强制硬件安全间隔：给予下位机 MCU 响应与数据落盘的物理时间
+                            await Task.Delay(200, token);
                         }
-                        catch (Exception)
-                        {
-                            // 如果写入瞬间串口被拔出等异常，吞掉异常或打印日志，防止整个任务崩溃
-                        }
+                        catch { /* 捕捉瞬时物理断开等 IO 异常 */ }
                     }
-                    // 如果串口没打开但队列里有数据（比如刚启动还没连接时触发了发送），数据会自动出队并丢弃，防止爆内存
                 }
             }
-            catch (OperationCanceledException)
-            {
-                // 任务正常取消退出
-            }
+            catch (OperationCanceledException) { /* 正常退出服务 */ }
         }
 
         /// <summary>
-        /// 内部数据接收处理器 (运行在次线程)
+        /// 串口接收回调处理。
         /// </summary>
         private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            if (_serialPort == null || !_serialPort.IsOpen) return;
+            if (sender is not SerialPort sp || !sp.IsOpen) return;
+
             try
             {
-                int bytesToRead = _serialPort.BytesToRead;
+                // 等待硬件数据完全到达缓冲区，防止半帧/分段现象
+                Thread.Sleep(200);
+
+                if (!sp.IsOpen) return;
+
+                int bytesToRead = sp.BytesToRead;
+                if (bytesToRead <= 0) return;
+
                 byte[] buffer = new byte[bytesToRead];
-                _serialPort.Read(buffer, 0, bytesToRead);
+                sp.Read(buffer, 0, bytesToRead);
+
+                // 通过全局消息总线分发原始 Hex 报文，由专门的消息订阅者进行协议解析
                 WeakReferenceMessenger.Default.Send(new HexDataMessage(buffer));
             }
-            catch (Exception) { }
+            catch { /* 捕捉接收过程中可能出现的设备意外拔出异常 */ }
         }
 
         /// <summary>
-        /// 销毁对象，确保资源释放
+        /// 释放资源，确保后台消费任务终止且串口关闭。
         /// </summary>
         public void Dispose()
         {

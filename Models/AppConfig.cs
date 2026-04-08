@@ -1,109 +1,98 @@
 ﻿/*
  * 文件名: AppConfig.cs
- * 描述: 本文件定义了软件的运行配置模型。
- * 用于持久化保存用户在界面上设置的各项参数（如电源电压、泵速等），
- * 确保软件重启后能恢复至上一次的运行参数状态。
- * 项目: GD_ControlCenter_WPF
+ * 描述: 定义软件全局运行配置模型，用于持久化存储硬件参数、实验设定及 UI 界面状态。
+ * 维护指南: 合并了 [同事的硬件/路径/窗口记忆] 与 [你的测量模式切换] 逻辑。
  */
 
 namespace GD_ControlCenter_WPF.Models
 {
+    #region 1. 附属实体结构
+
+    /// <summary> 时序图采样通道配置实体 </summary>
+    public class TimeSeriesSampleNode
+    {
+        public string Name { get; set; } = string.Empty;
+        public double? SelectedPeakX { get; set; }
+    }
+
+    /// <summary> 三维平台运行配置实体 </summary>
+    public class Platform3DConfig
+    {
+        public int X { get; set; } = 0;
+        public int Y { get; set; } = 0;
+        public int Z { get; set; } = 0;
+        public Dictionary<string, bool> IsAtMin { get; set; } = new() { { "X", false }, { "Y", false }, { "Z", false } };
+        public Dictionary<string, bool> IsAtMax { get; set; } = new() { { "X", false }, { "Y", false }, { "Z", false } };
+        public double DefaultStepDistance { get; set; } = 100;
+    }
+
+    #endregion
+
     /// <summary>
-    /// 系统全局配置实体类。
-    /// 映射软件的本地配置文件，管理各硬件模块的记忆参数。
+    /// 系统全局配置根实体类。
     /// </summary>
     public class AppConfig
     {
-        // --- 高压电源设置参数 ---
+        // ================== [你的业务核心] 测量模式定义 ==================
+        public enum MeasurementMode { Continuous, FlowInjection }
+        public MeasurementMode CurrentMeasurementMode { get; set; } = MeasurementMode.Continuous;
 
-        /// <summary>
-        /// 高压电源电压设定值。
-        /// </summary>
+
+        #region 2. 电力与流体控制参数
+
+        // ================== 高压电源记忆 ==================
         public int LastHvVoltage { get; set; } = 0;
-
-        /// <summary>
-        /// 高压电源电流设定值。
-        /// </summary>
         public int LastHvCurrent { get; set; } = 0;
 
-        // --- 蠕动泵设置参数 ---
-
-        /// <summary>
-        /// 蠕动泵转速。
-        /// </summary>
+        // ================== 蠕动泵控制记忆 ==================
         public int LastPumpSpeed { get; set; } = 0;
-
-        /// <summary>
-        /// 蠕动泵旋转方向。True 为顺时针（前向），False 为逆时针（后向）。
-        /// </summary>
         public bool IsPumpClockwise { get; set; } = true;
+        public double PumpFlowRateK { get; set; } = 1.0;
+        public double PumpFlowRateB { get; set; } = 0.0;
 
-        // 【新增】流速标定参数
-        public double PumpFlowRateK { get; set; } = 1.0; // 流速方程斜率 K
-        public double PumpFlowRateB { get; set; } = 0.0; // 流速方程截距 B
-
-        // --- 注射泵设置参数 ---
-
-        /// <summary>
-        /// 注射泵的移动距离步数，范围 0-3000。
-        /// </summary>
+        // ================== 注射泵控制记忆 ==================
         public int LastSyringeDistance { get; set; } = 0;
-
-        /// <summary>
-        /// 注射泵运行方向。True 为输出（推），False 为输入（吸）。
-        /// </summary>
         public bool IsSyringeOutput { get; set; } = true;
 
-        // --- 采样配置设置参数 ---
+        // ================== 点火系统配置 ==================
+        public bool IsAutoReigniteEnabled { get; set; } = false;
+        public double IgnitionDelaySeconds { get; set; } = 1.0;
 
-        /// <summary>
-        /// 采样次数设定值。
-        /// </summary>
+        #endregion
+
+        #region 3. 光谱采集与任务控制
+
         public int LastSampleCount { get; set; } = 1;
-
-        /// <summary>
-        /// 采样间隔设定值（单位：秒），范围 0-3600
-        /// </summary>
         public int LastSampleInterval { get; set; } = 1;
-
-        // --- 串口通信设置参数 ---
-
-        /// <summary>
-        /// 上次成功连接的串口号。
-        /// </summary>
-        public string LastSerialPort { get; set; } = string.Empty;
-
-        // 在 AppConfig 类中新增以下内容
-
-        // --- 光谱仪设置参数 ---
-
-        /// <summary>
-        /// 光谱仪积分时间（ms）。
-        /// </summary>
+        public bool IsSpectrometerEnabled { get; set; } = true;
         public float LastIntegrationTime { get; set; } = 0f;
-
-        /// <summary>
-        /// 光谱仪平均次数。
-        /// </summary>
         public uint LastAveragingCount { get; set; } = 0;
 
-        public bool IsSpectrometerEnabled { get; set; } = true;
-        public bool IsAutoReigniteEnabled { get; set; } = false;
+        #endregion
 
-        // --- 时序图采样配置参数 ---
+        #region 4. 时序图追踪与存储配置
 
-        /// <summary>
-        /// 记忆的时序图待测样品/通道名称列表。
-        /// 仅保存名称，特征峰(X坐标)由每次运行时重新寻峰配置。
-        /// </summary>
+        public List<TimeSeriesSampleNode> TimeSeriesSampleNodes { get; set; } = new List<TimeSeriesSampleNode>();
+        public string LastSerialPort { get; set; } = string.Empty;
+        public string SingleSaveExportPath { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        public string TimeSeriesSaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        public string ScriptSaveDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        public int ScriptSaveCount { get; set; } = 11;
+        public int ScriptSaveInterval { get; set; } = 5;
+
+        #endregion
+
+        #region 5. 运动控制与 UI 窗口记忆 (这是同事的核心代码)
+
+        public Platform3DConfig Platform3D { get; set; } = new Platform3DConfig();
+        public double MainWindowWidth { get; set; } = 1280;
+        public double MainWindowHeight { get; set; } = 800;
+        public bool IsMainWindowMaximized { get; set; } = false;
+
+        #endregion
+
+        // --- 手动加上这一行，解决你的报错 ---
         public List<string> TimeSeriesSampleNames { get; set; } = new List<string>();
-
-        // 定义测量模式枚举
-        public enum MeasurementMode { Continuous, FlowInjection }
-        
-        // ================= 新增：当前测样模式 =================
-        public MeasurementMode CurrentMeasurementMode { get; set; } = MeasurementMode.Continuous;
-        // ======================================================
-        
+        // ----------------------------------
     }
 }

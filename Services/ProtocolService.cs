@@ -26,49 +26,61 @@ namespace GD_ControlCenter_WPF.Services
 
         private void OnDataReceived(byte[] data)
         {
+            // 将新数据追加至缓冲区末尾
             _buffer.AddRange(data);
 
+            // 循环扫描缓冲区，直至无法解析出完整帧
             while (_buffer.Count > 0)
             {
-                // --- 控制协议族识别 (以 0x68 开头) ---
+                // 寻找帧起始符 (0x68)
                 if (_buffer[0] == ControlProtocol.FrameHeader)
                 {
-                    // 三维平台响应 (8 字节格式)
+                    // --- 分支 A: 三维平台反馈帧 (固定 8 字节) ---
                     if (_buffer.Count >= 4 && (FunctionCode)_buffer[3] == FunctionCode.Platform3D)
                     {
                         const int platformFrameLength = 8;
+
+                        // 若缓冲区不足 8 字节，等待更多数据到达
                         if (_buffer.Count < platformFrameLength) break;
 
+                        // 验证帧尾是否合法
                         if (_buffer[platformFrameLength - 1] == ControlProtocol.FrameFooter)
                         {
-                            var frame = _buffer.Take(platformFrameLength).ToArray();
+                            byte[] frame = _buffer.Take(platformFrameLength).ToArray();
+
+                            // 解析成功，分发三维平台专用消息
                             WeakReferenceMessenger.Default.Send(new Platform3DMessage(frame));
+
+                            // 从缓冲区移除已处理的报文
                             _buffer.RemoveRange(0, platformFrameLength);
                             continue;
                         }
                     }
 
-                    // 标准控制响应 (13 字节格式)
+                    // --- 分支 B: 标准控制响应帧 (固定 13 字节) ---
                     if (_buffer.Count >= ControlProtocol.CommandTotalLength)
                     {
+                        // 验证帧尾 (索引 12)
                         if (_buffer[ControlProtocol.CommandTotalLength - 1] == ControlProtocol.FrameFooter)
                         {
-                            var frame = _buffer.Take(ControlProtocol.CommandTotalLength).ToArray();
+                            byte[] frame = _buffer.Take(ControlProtocol.CommandTotalLength).ToArray();
 
-                            // 执行 CRC 校验确保数据准确
+                            // 计算并核对 CRC 校验码 (计算范围 0-9 字节)
                             byte[] crc = CrcHelper.Compute(frame, 10);
 
                             if (frame[10] == crc[0] && frame[11] == crc[1])
                             {
-                                // 通过功能码区分心跳状态数据与常规指令回执
-                                if (frame[3] == (byte)FunctionCode.Battery) // 假设已定义 Battery = 0xEE
+                                // 根据功能码进行二级路由分发
+                                byte code = frame[3];
+
+                                if (code == (byte)FunctionCode.Battery)
                                 {
-                                    // 仅发送给 BatteryService
+                                    // 转发至电池状态监控模块
                                     WeakReferenceMessenger.Default.Send(new BatteryFrameMessage(frame));
                                 }
                                 else
                                 {
-                                    // 发送给其他通用控制逻辑
+                                    // 转发至通用硬件响应处理模块（如高压电源、泵组回执）
                                     WeakReferenceMessenger.Default.Send(new ControlResponseMessage(frame));
                                 }
 
@@ -79,7 +91,7 @@ namespace GD_ControlCenter_WPF.Services
                     }
                 }
 
-                // 如果缓冲区第一个字节无法匹配任何已知协议头，则视为干扰数据并移除
+                // 干扰数据处理：若当前字节无法构成有效协议头，则逐字节剔除
                 _buffer.RemoveAt(0);
             }
         }

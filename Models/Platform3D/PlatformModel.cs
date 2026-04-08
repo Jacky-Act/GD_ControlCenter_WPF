@@ -65,34 +65,27 @@ namespace GD_ControlCenter_WPF.Models.Platform3D
     /// 三维平台运行状态模型。
     /// 集中管理平台的运动状态、复位状态以及各轴的物理边界触发标志。
     /// </summary>
-    public partial class PlatformStatus : ObservableObject
+    public  partial class PlatformStatus : ObservableObject
     {
         [ObservableProperty]
-        private bool _isMoving;
+        private bool _isMoving; // 工具包会自动生成公开的 IsMoving 属性
 
         [ObservableProperty]
-        private bool _isHomed;
+        private bool _isHomed;  // 工具包会自动生成公开的 IsHomed 属性
 
-        /// <summary>
-        /// 各轴零点边界标志（Min）
-        /// 使用字典统一管理，消除冗余的 switch 判断逻辑
-        /// </summary>
-        public Dictionary<AxisType, bool> IsAtMin { get; } = new()
-        {
-            { AxisType.X, false },
-            { AxisType.Y, false },
-            { AxisType.Z, false }
-        };
+        // --- 必须加上这一行 ---
+        public bool HasReceivedZZero { get; set; }
+        // ---------------------
 
-        /// <summary>
-        /// 各轴最大值边界标志（Max）
-        /// </summary>
-        public Dictionary<AxisType, bool> IsAtMax { get; } = new()
-        {
-            { AxisType.X, false },
-            { AxisType.Y, false },
-            { AxisType.Z, false }
-        };
+        public Dictionary<AxisType, bool> IsAtMin { get; set; } = new()
+    {
+        { AxisType.X, false }, { AxisType.Y, false }, { AxisType.Z, false }
+    };
+
+        public Dictionary<AxisType, bool> IsAtMax { get; set; } = new()
+    {
+        { AxisType.X, false }, { AxisType.Y, false }, { AxisType.Z, false }
+    };
     }
 
     /// <summary>

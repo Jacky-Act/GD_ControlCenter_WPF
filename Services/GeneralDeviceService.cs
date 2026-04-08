@@ -17,6 +17,7 @@ namespace GD_ControlCenter_WPF.Services
     public class GeneralDeviceService
     {
         private readonly ISerialPortService _serialPortService;
+        private readonly JsonConfigService _jsonConfigService; 
 
         public GeneralDeviceService(ISerialPortService serialPortService)
         {
@@ -70,9 +71,18 @@ namespace GD_ControlCenter_WPF.Services
         /// 触发点火功能。
         /// 调用封装好的 1000ms 延时点火指令。
         /// </summary>
+        // 在 GeneralDeviceService.cs 中修改 Fire 方法
         public void Fire()
         {
-            var cmd = ControlCommandFactory.CreateIgnition();
+            // 1. 获取本地配置中的延时设定（秒）
+            var config = _jsonConfigService.Load();
+
+            // 2. 转换为毫秒 (int)，并确保有默认值
+            int delayMs = (int)(config.IgnitionDelaySeconds * 1000);
+            if (delayMs <= 0) delayMs = 1000; // 防呆：如果没设，默认1秒
+
+            // 3. 传参调用新版工厂方法
+            var cmd = ControlCommandFactory.CreateIgnition(delayMs);
             _serialPortService.Send(cmd);
         }
     }
