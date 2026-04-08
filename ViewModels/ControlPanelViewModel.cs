@@ -8,6 +8,7 @@ using GD_ControlCenter_WPF.Services;
 using GD_ControlCenter_WPF.Services.Spectrometer;
 using GD_ControlCenter_WPF.ViewModels.Dialogs;
 using System.Collections.ObjectModel;
+using System.Timers;
 using static GD_ControlCenter_WPF.Models.AppConfig;
 
 
@@ -70,7 +71,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             // --- 读取本地配置 ---
             var appConfig = _jsonConfigService.Load();
             var specConfig = new SpectrometerConfig();
-
+            // 如果配置值大于 0，则使用配置值；否则保留 SpectrometerConfig 中的默认值
             if (appConfig.LastIntegrationTime > 0) specConfig.IntegrationTimeMs = appConfig.LastIntegrationTime;
             if (appConfig.LastAveragingCount > 0) specConfig.AveragingCount = appConfig.LastAveragingCount;
 
