@@ -59,32 +59,54 @@ namespace GD_ControlCenter_WPF
         /// <summary>
         /// 应用程序退出时的生命周期钩子
         /// </summary>
+        /// <summary>
+        /// 应用程序退出时的生命周期钩子。
+        /// 职责：执行数据紧急保存、下发硬件关闭指令、强制终止后台顽固进程。
+        /// </summary>
         protected override void OnExit(ExitEventArgs e)
         {
             try
             {
-                // 从 IoC 容器中获取需要的服务
+                // 触发所有记录模块的紧急静默保存，防止内存数据丢失
+                var timeSeriesVM = Services.GetRequiredService<TimeSeriesViewModel>();
+                timeSeriesVM.EmergencySave();
+
+                var controlPanelVM = Services.GetRequiredService<ControlPanelViewModel>();
+                controlPanelVM.EmergencySave();
+
+                // 按照安全顺序下发关闭指令
                 var hvService = Services.GetRequiredService<HighVoltageService>();
                 var generalService = Services.GetRequiredService<GeneralDeviceService>();
                 var serialService = Services.GetRequiredService<ISerialPortService>();
 
-                // 下发硬件关闭指令               
-                hvService.SetHighVoltage(0, 0); // 关闭高压电源 (电压 0，电流 0)              
-                generalService.ControlPeristalticPump(0, true, false);  // 关闭蠕动泵 (转速 0，状态 false 即停止)
-                SpectrometerManager.Instance.StopAll(); // 安全停止光谱仪数据采集，释放底层 C++ 句柄;此操作必须在彻底退出前执行，以防 SDK 挂起
+                // 停止蠕动泵供液
+                generalService.ControlPeristalticPump(0, true, false);
+                Thread.Sleep(300); // 预留总线通讯时间
 
-                // 等待异步队列清空，确保指令发送完毕
+                // 关闭高压电源输出
+                hvService.SetHighVoltage(0, 0);
                 Thread.Sleep(300);
 
-                // 安全关闭串口
-                serialService.Close();
+                // 将易引发死锁的断开操作（USB 句柄释放）丢入独立任务
+                var cleanupTask = Task.Run(() =>
+                {
+                    try { SpectrometerManager.Instance.StopAll(); } catch { }
+                    try { serialService.Close(); } catch { }
+                });
+
+                // 设置 1.5 秒硬超时。若底层驱动在此时间内未能响应，将不再等待直接进入强杀流程。
+                cleanupTask.Wait(1500);
             }
             catch (Exception)
             {
+                // 捕获所有退出异常，确保不弹出崩溃对话框
             }
             finally
             {
                 base.OnExit(e);
+
+                // 调用系统底层 Kill()，绕过所有托管与非托管的常规释放逻辑，直接从任务管理器级别销毁进程，防止“僵尸进程”残留。
+                System.Diagnostics.Process.GetCurrentProcess().Kill();
             }
         }
     }
