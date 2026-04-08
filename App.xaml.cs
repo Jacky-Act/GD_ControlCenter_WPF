@@ -69,10 +69,10 @@ namespace GD_ControlCenter_WPF
             {
                 // 触发所有记录模块的紧急静默保存，防止内存数据丢失
                 var timeSeriesVM = Services.GetRequiredService<TimeSeriesViewModel>();
-                timeSeriesVM.EmergencySave();
+                //timeSeriesVM.EmergencySave();
 
                 var controlPanelVM = Services.GetRequiredService<ControlPanelViewModel>();
-                controlPanelVM.EmergencySave();
+                //controlPanelVM.EmergencySave();
 
                 // 按照安全顺序下发关闭指令
                 var hvService = Services.GetRequiredService<HighVoltageService>();
