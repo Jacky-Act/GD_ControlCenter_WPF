@@ -1,59 +1,49 @@
 ﻿using GD_ControlCenter_WPF.Models.Platform3D;
 
+/*
+ * 文件名: IPlatform3DService.cs
+ * 描述: 定义三维运动平台的基础控制服务标准。
+ * 涵盖了平台实时坐标追踪、运行状态监控、各轴独立异步移动以及紧急停止操作。
+ * 维护指南: 任何实现此接口的类必须确保坐标系统与物理运动状态的强一致性。
+ */
+
 namespace GD_ControlCenter_WPF.Services.Platform3D
 {
     /// <summary>
-    /// 三维平台基础控制服务接口
-    /// 核心职责：负责单轴的物理移动、坐标实时维护及边界安全状态管理
+    /// 三维平台控制服务接口。
     /// </summary>
     public interface IPlatform3DService
     {
-        // --- 状态暴露 ---
-
         /// <summary>
-        /// 平台当前实时坐标
+        /// 获取平台当前各轴的实时脉冲坐标。
         /// </summary>
         PlatformPosition CurrentPosition { get; }
 
         /// <summary>
-        /// 平台当前运行状态（是否移动、边界标志等）
+        /// 获取平台当前运行状态（包含移动中标识、各轴限位触发状态等）。
         /// </summary>
         PlatformStatus Status { get; }
 
-        // --- 核心动作 ---
-
         /// <summary>
-        /// 初始化平台：加载持久化坐标并同步状态
+        /// 异步初始化平台：从持久化配置文件中加载历史坐标并同步初始限位状态。
         /// </summary>
+        /// <returns>异步任务结果。</returns>
         Task InitializeAsync();
 
         /// <summary>
-        /// 异步移动指定轴
+        /// 异步驱动指定轴移动。
+        /// 内部包含软限位预检，并支持通过取消令牌进行紧急运动中断。
         /// </summary>
-        /// <param name="axis">目标轴 (X/Y/Z)</param>
-        /// <param name="step">移动步进值</param>
-        /// <param name="isPositive">方向：true 为正向，false 为负向</param>
-        /// <param name="ct">取消令牌，用于手动停止或实验终止</param>
-        /// <returns>移动是否成功执行</returns>
+        /// <param name="axis">目标移动轴 (X/Y/Z)。</param>
+        /// <param name="step">移动脉冲步长。</param>
+        /// <param name="isPositive">移动方向：True 为正向，False 为反向。</param>
+        /// <param name="ct">外部传入的取消令牌，用于中途取消移动任务。</param>
+        /// <returns>移动任务是否成功执行并走完预定步长。</returns>
         Task<bool> MoveAxisAsync(AxisType axis, int step, bool isPositive, CancellationToken ct = default);
 
         /// <summary>
-        /// 立即停止所有轴的移动
+        /// 立即重置所有轴的运行状态标志位（强制停止逻辑状态）。
         /// </summary>
         void StopAll();
-
-        /// <summary>
-        /// 手动更新并保存当前坐标
-        /// </summary>
-        Task SavePositionAsync();
-
-        // --- 内部逻辑接口（供 ProtocolService 调用） ---
-
-        /// <summary>
-        /// 处理从硬件回传的边界/停止信号
-        /// </summary>
-        /// <param name="axis">停止的轴</param>
-        /// <param name="isZeroPosition">是否到达零点（Min）</param>
-        void HandleBoundarySignal(AxisType axis, bool isZeroPosition);
     }
 }
