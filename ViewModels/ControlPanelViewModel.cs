@@ -117,6 +117,11 @@ namespace GD_ControlCenter_WPF.ViewModels
         /// </summary>
         public double[]? SavedAxisLimits { get; set; }
 
+        /// <summary>
+        /// 三维平台窗口单例实例：确保全局仅打开一个三维平台调试窗口
+        /// </summary>
+        private static GD_ControlCenter_WPF.Views.Dialogs.Platform3DWindow? _platform3DWindowInstance;
+
         #endregion
 
         #region 3. 内存流转与持久化缓存 (Data Flow & Cache)
@@ -530,17 +535,31 @@ namespace GD_ControlCenter_WPF.ViewModels
         [RelayCommand]
         private void OpenPlatform3DWindow()
         {
+            // 检查三维平台窗口是否已存在且未关闭：若存在则激活并前置显示，不重复创建
+            if (_platform3DWindowInstance != null && _platform3DWindowInstance.IsLoaded)
+            {
+                // 将已打开的窗口前置并激活（弹出效果）
+                _platform3DWindowInstance.Activate();
+                // 若窗口最小化则恢复正常状态
+                if (_platform3DWindowInstance.WindowState == WindowState.Minimized)
+                {
+                    _platform3DWindowInstance.WindowState = WindowState.Normal;
+                }
+                return;
+            }
+
             var platformService = App.Services.GetRequiredService<IPlatform3DService>();
             var calibrationService = App.Services.GetRequiredService<PlatformCalibrationService>();
             var jsonConfigService = App.Services.GetRequiredService<JsonConfigService>();
             var peakTrackingService = App.Services.GetRequiredService<PeakTrackingService>();
 
-            var window = new GD_ControlCenter_WPF.Views.Dialogs.Platform3DWindow();
+            // 实例化新窗口并赋值给单例变量（保证全局唯一）
+            _platform3DWindowInstance = new GD_ControlCenter_WPF.Views.Dialogs.Platform3DWindow();
             var vm = new GD_ControlCenter_WPF.ViewModels.Dialogs.Platform3DViewModel(
-                platformService, calibrationService, jsonConfigService, peakTrackingService, () => window.Close());
+                platformService, calibrationService, jsonConfigService, peakTrackingService, () => _platform3DWindowInstance.Close());
 
-            window.DataContext = vm;
-            window.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+            _platform3DWindowInstance.DataContext = vm;
+            _platform3DWindowInstance.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
 
             // 获取当前主窗口
             var mainWindow = System.Windows.Application.Current.MainWindow;
@@ -548,7 +567,7 @@ namespace GD_ControlCenter_WPF.ViewModels
             // 定义主窗口关闭时的联动动作：关掉当前的三维平台窗口
             EventHandler mainWindowClosedHandler = (sender, e) =>
             {
-                window.Close();
+                _platform3DWindowInstance?.Close();
             };
 
             if (mainWindow != null)
@@ -558,18 +577,19 @@ namespace GD_ControlCenter_WPF.ViewModels
             }
 
             // 订阅窗口自身的关闭事件
-            window.Closed += (sender, e) =>
-            {               
-
-                // 如果子窗口自己先被关闭了，必须解绑主窗口的事件，防止内存泄漏
+            _platform3DWindowInstance.Closed += (sender, e) =>
+            {
+                // 窗口关闭时解绑主窗口事件，防止内存泄漏
                 if (mainWindow != null)
                 {
                     mainWindow.Closed -= mainWindowClosedHandler;
                 }
+                // 释放单例实例，允许下次重新创建
+                _platform3DWindowInstance = null;
             };
 
             vm.SavePreferences();
-            window.Show();
+            _platform3DWindowInstance.Show();
         }
 
         /// <summary> 打开积分时间调整对话框。 </summary>

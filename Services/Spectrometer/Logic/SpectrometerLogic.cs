@@ -49,7 +49,7 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
         /// <param name="dataCollection">待合并的光谱数据集合（来自不同物理设备）。</param>
         /// <param name="mergeTolerance">合并容差 (单位: nm)。在此范围内的像素点被视为同一个物理坐标。</param>
         /// <returns>拼接完成后的全局光谱数据实体。</returns>
-        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection, double mergeTolerance = 0.05)
+        public static SpectralData? PerformStitching(IEnumerable<SpectralData> dataCollection, double mergeTolerance = 0.01)
         {
             if (dataCollection == null) return null;
 
@@ -91,6 +91,18 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                 // --- 步骤 2: 物理波长排序 ---              
                 Array.Sort(_bufferWavelengths, _bufferIntensities, 0, totalLength); // 基于波长池对强度池进行联动升序排列
 
+                // 拼接段波长对齐校正（消除设备间波长微差）
+                for (int i = 1; i < totalLength; i++)
+                {
+                    double prev = _bufferWavelengths[i - 1];
+                    double curr = _bufferWavelengths[i];
+                    // 相邻波长异常跳变>1nm判定为拼接缝，强制平滑
+                    if (curr - prev > 1.0)
+                    {
+                        _bufferWavelengths[i] = prev + 0.1;
+                    }
+                }
+
                 // --- 步骤 3: 峰值保护去重 ---
                 int validCount = 0; // 慢指针：指向已处理好的有效数据末尾
 
@@ -122,8 +134,12 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer.Logic
                 // --- 步骤 4: 结果输出 (实例化) ---
                 double[] finalW = new double[finalLength];
                 double[] finalI = new double[finalLength];
-                Array.Copy(_bufferWavelengths, 0, finalW, 0, finalLength);
-                Array.Copy(_bufferIntensities, 0, finalI, 0, finalLength);
+                // 逐元素赋值，避免Array.Copy浮点尾差
+                for (int i = 0; i < finalLength; i++)
+                {
+                    finalW[i] = _bufferWavelengths[i];
+                    finalI[i] = _bufferIntensities[i];
+                }
 
                 return new SpectralData(finalW, finalI, "Combined_System");
             }

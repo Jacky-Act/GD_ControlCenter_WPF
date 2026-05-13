@@ -106,11 +106,13 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
         /// </summary>
         public void StartAll()
         {
-            foreach (var device in Devices)
+            // 先全量下发指令，再统一启动，消除逐个Sleep的时序差
+            var deviceList = Devices.ToList();
+            foreach (var device in deviceList)
             {
-                device.StartContinuousMeasurement();             
-                Thread.Sleep(50);   // 物理缓冲：避免大量 USB 开始采集指令瞬间挤压总线
+                device.StartContinuousMeasurement();
             }
+            Thread.Sleep(50);
         }
 
         /// <summary>
@@ -271,7 +273,7 @@ namespace GD_ControlCenter_WPF.Services.Spectrometer
             _latestDataCache[data.SourceDeviceSerial] = data;
 
             // 只有当所有在线设备的数据都到达缓存时，才触发拼接数学运算
-            if (_latestDataCache.Count >= totalOnlineDevices)
+            if (_latestDataCache.Count == totalOnlineDevices)
             {
                 // 调用数学逻辑层执行多光谱段拼接
                 var combinedData = SpectrometerLogic.PerformStitching(_latestDataCache.Values);

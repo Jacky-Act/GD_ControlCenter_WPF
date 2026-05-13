@@ -134,9 +134,9 @@ namespace GD_ControlCenter_WPF.Models
         public bool IsAutoReigniteEnabled { get; set; } = false;
 
         /// <summary>
-        /// 点火过程中的蠕动泵加速转动时间（单位：秒），范围 1.0 - 5.0。
+        /// 点火过程中的蠕动泵加速转动时间（单位：秒），范围 0.5 - 5.0。
         /// </summary>
-        public double IgnitionDelaySeconds { get; set; } = 1.0;
+        public double IgnitionDelaySeconds { get; set; } = 0.5;
 
         #endregion
 
